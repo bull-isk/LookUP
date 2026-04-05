@@ -1,0 +1,5 @@
+node_modules
+renderer/node_modules
+lookup-dev.db
+lookup-dev.db-shm
+lookup-dev.db-wal
