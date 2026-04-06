@@ -3,11 +3,17 @@ const { ipcMain } = require('electron');
 const repo = require('../../db/repositories/person.repo');
 
 module.exports = function registerPersonHandlers() {
-  ipcMain.handle('person:list',         () => repo.getAllPersons());
-  ipcMain.handle('person:full',         (_, id) => repo.getFullPerson(id));
-  ipcMain.handle('person:create',       (_, data) => repo.createPerson(data));
-  ipcMain.handle('person:update',       (_, id, data) => repo.updatePerson(id, data));
-  ipcMain.handle('person:delete',       (_, id) => repo.deletePerson(id));
-  ipcMain.handle('person:setPronouns',  (_, personId, ids) => repo.setPersonPronouns(personId, ids));
-  ipcMain.handle('person:setTags',      (_, personId, ids) => repo.setPersonTags(personId, ids));
+  ipcMain.handle('person:list',           ()          => repo.getAllPersons());
+  ipcMain.handle('person:full',           (_, id)     => repo.getFullPerson(id));
+  ipcMain.handle('person:create',         (_, data)   => repo.createPerson(data));
+  ipcMain.handle('person:update',         (_, id, d)  => repo.updatePerson(id, d));
+  ipcMain.handle('person:delete',         (_, id)     => repo.deletePerson(id));
+  ipcMain.handle('person:setPronouns',    (_, id, ids)=> repo.setPersonPronouns(id, ids));
+  ipcMain.handle('person:setTags',        (_, id, ids)=> repo.setPersonTags(id, ids));
+
+  // Phase A — new channels
+  ipcMain.handle('person:birthdays',      ()          => repo.getBirthdayPersons());
+  ipcMain.handle('person:recentlyUpdated',(_, limit)  => repo.getRecentlyUpdated(limit));
+  ipcMain.handle('person:favorites',      (_, limit)  => repo.getFavorites(limit));
+  ipcMain.handle('person:byTag',          ()          => repo.getPeopleByTag());
 };

@@ -140,7 +140,6 @@ function initSchema() {
       Note     TEXT NOT NULL
     );
 
-    -- Quote BY the person
     CREATE TABLE IF NOT EXISTS Quote (
       QuoteID  INTEGER PRIMARY KEY AUTOINCREMENT,
       PersonID INTEGER NOT NULL REFERENCES Person(PersonID) ON DELETE CASCADE,
@@ -148,7 +147,6 @@ function initSchema() {
       Date     TEXT
     );
 
-    -- WordMouth: quote ABOUT the person, sayer is optional
     CREATE TABLE IF NOT EXISTS WordMouth (
       WordMouthID INTEGER PRIMARY KEY AUTOINCREMENT,
       PersonID    INTEGER NOT NULL REFERENCES Person(PersonID) ON DELETE CASCADE,
@@ -167,10 +165,38 @@ function initSchema() {
     );
   `);
 
-	// Seed lookup tables on first run
+	// ── MIGRATIONS (safe to run on existing DB) ───────────────────
+	runMigrations(db);
+
+	// ── SEED ─────────────────────────────────────────────────────
 	seedLookups(db);
 
 	console.log("[DB] Schema ready.");
+}
+
+function runMigrations(db) {
+	// Helper: check if a column exists in a table
+	const hasColumn = (table, col) => {
+		const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+		return cols.some((c) => c.name === col);
+	};
+
+	// Add LastUpdated to Person
+	if (!hasColumn("Person", "LastUpdated")) {
+		db.exec(`ALTER TABLE Person ADD COLUMN LastUpdated TEXT`);
+		// Backfill existing rows with current time so they're not null
+		db.exec(`UPDATE Person SET LastUpdated = datetime('now') WHERE LastUpdated IS NULL`);
+		console.log("[DB] Migration: added Person.LastUpdated");
+	}
+
+	// Add CategoryID to Person
+	if (!hasColumn("Person", "CategoryID")) {
+		db.exec(`
+      ALTER TABLE Person ADD COLUMN CategoryID INTEGER
+        REFERENCES Category(CategoryID) ON DELETE SET NULL
+    `);
+		console.log("[DB] Migration: added Person.CategoryID");
+	}
 }
 
 function seedLookups(db) {
@@ -184,6 +210,13 @@ function seedLookups(db) {
 		rows.forEach((r) => insert.run(r));
 		console.log(`[DB] Seeded ${table}`);
 	};
+
+	seedIfEmpty("Category", [
+		{ CategoryName: "Personal", SVGPath: "", HexCode: "#4A90D9" },
+		{ CategoryName: "Professional", SVGPath: "", HexCode: "#7B68EE" },
+		{ CategoryName: "Family", SVGPath: "", HexCode: "#E8A838" },
+		{ CategoryName: "Acquaintance", SVGPath: "", HexCode: "#6AAB6A" },
+	]);
 
 	seedIfEmpty("Pronouns", [{ Pronouns: "he/him" }, { Pronouns: "she/her" }, { Pronouns: "they/them" }, { Pronouns: "xe/xem" }, { Pronouns: "prefer not to say" }]);
 
@@ -221,12 +254,10 @@ function seedLookups(db) {
 
 	seedIfEmpty("SubSpecifics", [{ SubName: "Personality" }, { SubName: "Preferences" }, { SubName: "Physical" }, { SubName: "Habits" }]);
 
-	// SpecificsPts depend on SubSpecifics being seeded first
 	const ptCount = db.prepare("SELECT COUNT(*) as n FROM SpecificsPts").get().n;
 	if (ptCount === 0) {
 		const subRows = db.prepare("SELECT SubSpecificsID, SubName FROM SubSpecifics").all();
 		const subMap = Object.fromEntries(subRows.map((r) => [r.SubName, r.SubSpecificsID]));
-
 		const pts = [
 			{ SubSpecificsID: subMap["Personality"], PointName: "Strengths" },
 			{ SubSpecificsID: subMap["Personality"], PointName: "Weaknesses" },
@@ -239,7 +270,6 @@ function seedLookups(db) {
 			{ SubSpecificsID: subMap["Habits"], PointName: "Morning routine" },
 			{ SubSpecificsID: subMap["Habits"], PointName: "Sleep schedule" },
 		];
-
 		const ins = db.prepare("INSERT INTO SpecificsPts (SubSpecificsID, PointName) VALUES (@SubSpecificsID, @PointName)");
 		pts.forEach((p) => ins.run(p));
 		console.log("[DB] Seeded SpecificsPts");

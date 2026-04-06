@@ -1,3 +1,4 @@
+// renderer/src/pages/PersonForm.jsx
 import { useState, useEffect } from "react";
 import { personCreate, personUpdate, personFull, personSetPronouns, personSetTags, lookupAll } from "../api/bridge";
 
@@ -15,6 +16,7 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 		Address: "",
 		ImpressionNote: "",
 		TimezoneID: "",
+		CategoryID: "",
 	});
 	const [selectedPronouns, setSelectedPronouns] = useState([]);
 	const [selectedTags, setSelectedTags] = useState([]);
@@ -34,6 +36,7 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 					Address: p.Address || "",
 					ImpressionNote: p.ImpressionNote || "",
 					TimezoneID: p.TimezoneID || "",
+					CategoryID: p.CategoryID || "",
 				});
 				setSelectedPronouns(data.pronouns.map((x) => x.PronounsID));
 				setSelectedTags(data.tags.map((x) => x.TagID));
@@ -41,7 +44,7 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 		}
 	}, [personId]);
 
-	const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+	const set = (f) => (e) => setForm((prev) => ({ ...prev, [f]: e.target.value }));
 
 	const toggleMulti = (arr, setArr, id) => {
 		setArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -58,6 +61,7 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 			const payload = {
 				...form,
 				TimezoneID: form.TimezoneID ? Number(form.TimezoneID) : null,
+				CategoryID: form.CategoryID ? Number(form.CategoryID) : null,
 			};
 			let id = personId;
 			if (isEdit) {
@@ -102,6 +106,20 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 				Impression Note
 				<textarea style={{ ...input, height: 60 }} value={form.ImpressionNote} onChange={set("ImpressionNote")} />
 			</label>
+
+			{/* ── Category (new in Phase A) ─────────────────────────── */}
+			<label style={field}>
+				Category
+				<select style={input} value={form.CategoryID} onChange={set("CategoryID")}>
+					<option value="">— none —</option>
+					{lookups.categories.map((c) => (
+						<option key={c.CategoryID} value={c.CategoryID}>
+							{c.CategoryName}
+						</option>
+					))}
+				</select>
+			</label>
+
 			<label style={field}>
 				Timezone
 				<select style={input} value={form.TimezoneID} onChange={set("TimezoneID")}>

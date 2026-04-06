@@ -1,8 +1,5 @@
 // renderer/src/api/bridge.js
-// Single import point for all Electron API calls.
-// React components NEVER call window.electronAPI directly.
-
-const api = window.electronAPI;
+const api = window.electronAPI
 
 export const personList        = ()         => api.personList();
 export const personFull        = (id)       => api.personFull(id);
@@ -47,3 +44,10 @@ export const lookupAll         = ()         => api.lookupAll();
 export const lookupAddTag      = (n)        => api.lookupAddTag(n);
 export const lookupAddOrg      = (n)        => api.lookupAddOrg(n);
 export const lookupAddInst     = (d)        => api.lookupAddInst(d);
+export const lookupAddCategory = (d)        => api.lookupAddCategory(d);
+
+// Phase A — new page data
+export const personBirthdays       = ()      => api.personBirthdays();
+export const personRecentlyUpdated = (limit) => api.personRecentlyUpdated(limit);
+export const personFavorites       = (limit) => api.personFavorites(limit);
+export const personByTag           = ()      => api.personByTag();
