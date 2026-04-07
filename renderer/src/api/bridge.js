@@ -51,3 +51,16 @@ export const personBirthdays       = ()      => api.personBirthdays();
 export const personRecentlyUpdated = (limit) => api.personRecentlyUpdated(limit);
 export const personFavorites       = (limit) => api.personFavorites(limit);
 export const personByTag           = ()      => api.personByTag();
+
+// Phase B — specifics
+export const personSearch        = (q)        => api.personSearch(q);
+export const lookupFindOrCreateTag = (n)      => api.lookupFindOrCreateTag(n);
+export const lookupTagsWithCounts  = ()       => api.lookupTagsWithCounts();
+export const lookupPersonsByTag    = (id)     => api.lookupPersonsByTag(id);
+export const specificsForPerson    = (pid)    => api.specificsForPerson(pid);
+export const specificsTree         = ()       => api.specificsTree();
+export const specificsAddValue     = (d)      => api.specificsAddValue(d);
+export const specificsUpdateValue  = (id, n)  => api.specificsUpdateValue(id, n);
+export const specificsDeleteValue  = (id)     => api.specificsDeleteValue(id);
+export const specificsFindOrCreateSub   = (name)       => api.specificsFindOrCreateSub(name);
+export const specificsFindOrCreatePoint = (sid, name)  => api.specificsFindOrCreatePoint(sid, name);

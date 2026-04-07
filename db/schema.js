@@ -174,28 +174,83 @@ function initSchema() {
 	console.log("[DB] Schema ready.");
 }
 
-function runMigrations(db) {
-	// Helper: check if a column exists in a table
-	const hasColumn = (table, col) => {
-		const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-		return cols.some((c) => c.name === col);
-	};
+// db/schema.js  — only the runMigrations function changes
+// Replace the existing runMigrations() with this one. Everything else stays.
 
-	// Add LastUpdated to Person
+function runMigrations(db) {
+	const hasColumn = (table, col) =>
+		db
+			.prepare(`PRAGMA table_info(${table})`)
+			.all()
+			.some((c) => c.name === col);
+
+	// Phase A migrations (keep these)
 	if (!hasColumn("Person", "LastUpdated")) {
 		db.exec(`ALTER TABLE Person ADD COLUMN LastUpdated TEXT`);
-		// Backfill existing rows with current time so they're not null
 		db.exec(`UPDATE Person SET LastUpdated = datetime('now') WHERE LastUpdated IS NULL`);
 		console.log("[DB] Migration: added Person.LastUpdated");
 	}
-
-	// Add CategoryID to Person
 	if (!hasColumn("Person", "CategoryID")) {
-		db.exec(`
-      ALTER TABLE Person ADD COLUMN CategoryID INTEGER
-        REFERENCES Category(CategoryID) ON DELETE SET NULL
-    `);
+		db.exec(`ALTER TABLE Person ADD COLUMN CategoryID INTEGER REFERENCES Category(CategoryID) ON DELETE SET NULL`);
 		console.log("[DB] Migration: added Person.CategoryID");
+	}
+
+	// Phase B — reset Specifics hierarchy to new 4-category structure
+	// Guard: only run if the OLD seed names exist (Personality, Physical)
+	// so this is safe to re-run on a fresh DB that already has new names.
+	const oldSub = db.prepare(`SELECT COUNT(*) as n FROM SubSpecifics WHERE SubName IN ('Personality','Physical')`).get();
+
+	if (oldSub.n > 0) {
+		console.log("[DB] Migration: resetting Specifics hierarchy...");
+		db.transaction(() => {
+			// Cascade via FK: delete Specifics first, then SpecificsPts, then SubSpecifics
+			db.exec(`DELETE FROM Specifics`);
+			db.exec(`DELETE FROM SpecificsPts`);
+			db.exec(`DELETE FROM SubSpecifics`);
+
+			// Re-seed with new 4 top-level categories (order matters for UI)
+			const insertSub = db.prepare(`INSERT INTO SubSpecifics (SubName) VALUES (?)`);
+			const subs = ["Preferences", "Interests", "Characteristics", "Habits"];
+			const subIds = {};
+			subs.forEach((name) => {
+				const r = insertSub.run(name);
+				subIds[name] = r.lastInsertRowid;
+			});
+
+			// Seed starter points under each category
+			const insertPt = db.prepare(`INSERT INTO SpecificsPts (SubSpecificsID, PointName) VALUES (?, ?)`);
+			const pts = {
+				Preferences: ["Food", "Music", "Place", "Colour", "Season"],
+				Interests: ["Hobbies", "Sports", "Topics", "Media", "Travel"],
+				Characteristics: ["Strengths", "Weaknesses", "Communication style", "Love language"],
+				Habits: ["Morning routine", "Sleep schedule", "Exercise", "Reading"],
+			};
+			Object.entries(pts).forEach(([sub, points]) => {
+				points.forEach((pt) => insertPt.run(subIds[sub], pt));
+			});
+		})();
+		console.log("[DB] Migration: Specifics hierarchy reset complete.");
+	}
+
+	// Phase B Refinement — free-text fields for EduHistory
+	// (old FK-based fields stay nullable for existing data; new text fields added)
+	if (!hasColumn("EduHistory", "InstitutionText")) {
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN InstitutionText TEXT`);
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN CityText        TEXT`);
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN Faculty         TEXT`);
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN Major           TEXT`);
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN StartYearText   TEXT`);
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN EndYearText     TEXT`);
+		console.log("[DB] Migration: added free-text fields to EduHistory");
+	}
+
+	// Phase B Refinement — free-text fields for OrgHistory
+	if (!hasColumn("OrgHistory", "OrgNameText")) {
+		db.exec(`ALTER TABLE OrgHistory ADD COLUMN OrgNameText  TEXT`);
+		db.exec(`ALTER TABLE OrgHistory ADD COLUMN Role         TEXT`);
+		db.exec(`ALTER TABLE OrgHistory ADD COLUMN StartYearText TEXT`);
+		db.exec(`ALTER TABLE OrgHistory ADD COLUMN EndYearText   TEXT`);
+		console.log("[DB] Migration: added free-text fields to OrgHistory");
 	}
 }
 

@@ -7,93 +7,7 @@ import DebugView from "./pages/DebugView";
 import HomePage from "./pages/HomePage";
 import BirthdaysPage from "./pages/BirthdaysPage";
 import TagsPage from "./pages/TagsPage";
-
-// ── Styles ───────────────────────────────────────────────────────
-const S = {
-	root: {
-		display: "flex",
-		height: "100vh",
-		fontFamily: "monospace",
-		fontSize: 13,
-		overflow: "hidden",
-		background: "#0f111a", // deep indigo-black
-		color: "#a5b0d6",
-	},
-
-	// Left nav
-	nav: {
-		width: 110,
-		borderRight: "1px solid #2a2f4a",
-		display: "flex",
-		flexDirection: "column",
-		background: "#161a2b",
-		flexShrink: 0,
-	},
-	navTitle: {
-		padding: "10px 8px 6px",
-		fontWeight: "bold",
-		fontSize: 14,
-		borderBottom: "1px solid #2a2f4a",
-		color: "#e8ecff",
-	},
-	navItem: (active) => ({
-		padding: "9px 12px",
-		cursor: "pointer",
-		background: active ? "#4f46e5" : "transparent",
-		color: active ? "#fff" : "#a5b0d6",
-		borderLeft: active ? "3px solid #818cf8" : "3px solid transparent",
-		userSelect: "none",
-	}),
-
-	// People sidebar
-	sidebar: {
-		width: 200,
-		borderRight: "1px solid #2a2f4a",
-		display: "flex",
-		flexDirection: "column",
-		overflow: "hidden",
-		flexShrink: 0,
-		background: "#121526",
-	},
-	sideTop: {
-		padding: "8px",
-		borderBottom: "1px solid #2a2f4a",
-		display: "flex",
-		gap: 4,
-		alignItems: "center",
-	},
-	personList: { flex: 1, overflowY: "auto" },
-	personItem: (active) => ({
-		padding: "6px 10px",
-		cursor: "pointer",
-		background: active ? "#6366f1" : "transparent",
-		color: active ? "#fff" : "#a5b0d6",
-		borderBottom: "1px solid #1a1d2e",
-	}),
-
-	// Main content
-	main: {
-		flex: 1,
-		overflowY: "auto",
-		padding: 14,
-		background: "#0f111a",
-	},
-
-	tabs: {
-		display: "flex",
-		gap: 4,
-		marginBottom: 12,
-		borderBottom: "1px solid #2a2f4a",
-		paddingBottom: 4,
-	},
-	tab: (active) => ({
-		padding: "4px 10px",
-		cursor: "pointer",
-		border: "1px solid #3a3f63",
-		background: active ? "#4f46e5" : "#1a1d2e",
-		color: active ? "#fff" : "#a5b0d6",
-	}),
-};
+import SearchPopup from "./components/SearchPopup";
 
 const NAV_ITEMS = [
 	{ id: "home", label: "🏠 Home" },
@@ -103,24 +17,35 @@ const NAV_ITEMS = [
 ];
 
 export default function App() {
-	const [navView, setNavView] = useState("home"); // current top-level page
+	const [navView, setNavView] = useState("home");
 	const [people, setPeople] = useState([]);
 	const [selectedId, setSelectedId] = useState(null);
-	const [detailTab, setDetailTab] = useState("detail"); // 'detail' | 'edit' | 'debug'
+	const [detailTab, setDetailTab] = useState("detail");
+	const [searchOpen, setSearchOpen] = useState(false);
 
-	const reloadPeople = useCallback(() => {
-		personList().then(setPeople);
-	}, []);
-
+	const reloadPeople = useCallback(() => personList().then(setPeople), []);
 	useEffect(() => {
 		reloadPeople();
 	}, [reloadPeople]);
 
-	// Called by any page when it wants to navigate to a person
+	// Ctrl+F — global search
+	useEffect(() => {
+		const handler = (e) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+				e.preventDefault();
+				setSearchOpen(true);
+			}
+			if (e.key === "Escape") setSearchOpen(false);
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
+	}, []);
+
 	const openPerson = useCallback((personId) => {
 		setSelectedId(personId);
 		setDetailTab("detail");
 		setNavView("people");
+		setSearchOpen(false);
 	}, []);
 
 	const handleNew = () => {
@@ -128,95 +53,116 @@ export default function App() {
 		setDetailTab("create");
 		setNavView("people");
 	};
-
 	const handleSaved = (id) => {
 		reloadPeople();
 		setSelectedId(id);
 		setDetailTab("detail");
 	};
-
 	const handleDeleted = () => {
 		reloadPeople();
 		setSelectedId(null);
 		setDetailTab("detail");
 	};
 
-	// ── Render ────────────────────────────────────────────────────
 	return (
-		<div style={S.root}>
+		<div style={{ display: "flex", height: "100vh", overflow: "hidden", color: "var(--text-primary)", background: "var(--bg-primary)" }}>
+			{/* ── Search popup (Ctrl+F) ─────────────────────────────── */}
+			{searchOpen && <SearchPopup onSelect={openPerson} onClose={() => setSearchOpen(false)} />}
+
 			{/* ── Nav sidebar ──────────────────────────────────────── */}
-			<div style={S.nav}>
-				<div style={S.navTitle}>LookUP!</div>
+			<div style={{ width: "var(--nav-width)", borderRight: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", background: "var(--bg-secondary)", flexShrink: 0 }}>
+				<div style={{ padding: "10px 8px 6px", fontWeight: "bold", fontSize: 14, borderBottom: "1px solid var(--border-primary)" }}>LookUP!</div>
 				{NAV_ITEMS.map((item) => (
-					<div key={item.id} style={S.navItem(navView === item.id)} onClick={() => setNavView(item.id)}>
+					<div
+						key={item.id}
+						onClick={() => setNavView(item.id)}
+						style={{
+							padding: "9px 12px",
+							cursor: "pointer",
+							userSelect: "none",
+							background: navView === item.id ? "var(--bg-active)" : "transparent",
+							color: navView === item.id ? "var(--text-on-active)" : "var(--text-primary)",
+							borderLeft: navView === item.id ? "3px solid var(--nav-accent)" : "3px solid transparent",
+						}}
+					>
 						{item.label}
 					</div>
 				))}
+				<div style={{ marginTop: "auto", padding: "8px", fontSize: "var(--font-size-xs)", color: "var(--text-muted)", borderTop: "1px solid var(--border-secondary)" }}>Ctrl+F search</div>
 			</div>
 
-			{/* ── People sidebar (only shown on 'people' view) ──────── */}
+			{/* ── People sidebar (people view only) ────────────────── */}
 			{navView === "people" && (
-				<div style={S.sidebar}>
-					<div style={S.sideTop}>
+				<div style={{ width: "var(--sidebar-width)", borderRight: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
+					<div style={{ padding: 8, borderBottom: "1px solid var(--border-primary)", display: "flex", gap: 4, alignItems: "center" }}>
 						<strong>People</strong>
-						<button onClick={handleNew} style={{ marginLeft: "auto" }}>
+						<button
+							onClick={handleNew}
+							style={{ marginLeft: "auto", background: "var(--bg-active)", color: "var(--text-on-active)", border: "none", padding: "2px 7px", borderRadius: "var(--radius-sm)" }}
+						>
 							+ New
 						</button>
 					</div>
-					<div style={S.personList}>
+					<div style={{ flex: 1, overflowY: "auto" }}>
 						{people.map((p) => (
 							<div
 								key={p.PersonID}
-								style={S.personItem(p.PersonID === selectedId)}
 								onClick={() => {
 									setSelectedId(p.PersonID);
 									setDetailTab("detail");
 								}}
+								style={{
+									padding: "6px 10px",
+									cursor: "pointer",
+									background: p.PersonID === selectedId ? "var(--bg-active)" : "transparent",
+									color: p.PersonID === selectedId ? "var(--text-on-active)" : "var(--text-primary)",
+									borderBottom: "1px solid var(--border-faint)",
+								}}
 							>
 								<div>{p.FullName}</div>
-								{p.Nickname && <div style={{ fontSize: 11, opacity: 0.75 }}>{p.Nickname}</div>}
-								{p.CategoryName && <div style={{ fontSize: 10, color: p.PersonID === selectedId ? "#cce" : "#888" }}>{p.CategoryName}</div>}
+								{p.Nickname && <div style={{ fontSize: "var(--font-size-xs)", opacity: 0.75 }}>{p.Nickname}</div>}
+								{p.CategoryName && <div style={{ fontSize: "var(--font-size-xs)", color: p.PersonID === selectedId ? "#cce" : "var(--text-muted)" }}>{p.CategoryName}</div>}
 							</div>
 						))}
-						{people.length === 0 && <div style={{ padding: 10, color: "#999" }}>No people yet.</div>}
+						{people.length === 0 && <div style={{ padding: 10, color: "var(--text-muted)" }}>No people yet.</div>}
 					</div>
 				</div>
 			)}
 
-			{/* ── Main panel ───────────────────────────────────────── */}
-			<div style={S.main}>
+			{/* ── Main content ─────────────────────────────────────── */}
+			<div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
 				{navView === "home" && <HomePage onOpenPerson={openPerson} />}
-
 				{navView === "birthdays" && <BirthdaysPage onOpenPerson={openPerson} />}
-
 				{navView === "tags" && <TagsPage onOpenPerson={openPerson} />}
 
 				{navView === "people" && (
 					<>
-						{/* Create flow */}
 						{detailTab === "create" && <PersonForm onSaved={handleSaved} onCancel={() => setDetailTab("detail")} />}
-
-						{/* Detail / Edit / Debug tabs */}
 						{detailTab !== "create" && selectedId && (
 							<>
-								<div style={S.tabs}>
-									<button style={S.tab(detailTab === "detail")} onClick={() => setDetailTab("detail")}>
-										Detail
-									</button>
-									<button style={S.tab(detailTab === "edit")} onClick={() => setDetailTab("edit")}>
-										Edit
-									</button>
-									<button style={S.tab(detailTab === "debug")} onClick={() => setDetailTab("debug")}>
-										Debug JSON
-									</button>
+								{/* Detail-level tab bar */}
+								<div style={{ display: "flex", gap: 4, marginBottom: 12, borderBottom: "1px solid var(--border-primary)", paddingBottom: 4 }}>
+									{["detail", "edit", "debug"].map((t) => (
+										<button
+											key={t}
+											onClick={() => setDetailTab(t)}
+											style={{
+												padding: "4px 10px",
+												border: "1px solid var(--border-primary)",
+												background: detailTab === t ? "var(--text-primary)" : "var(--bg-tertiary)",
+												color: detailTab === t ? "var(--text-on-active)" : "var(--text-primary)",
+											}}
+										>
+											{t.charAt(0).toUpperCase() + t.slice(1)}
+										</button>
+									))}
 								</div>
 								{detailTab === "detail" && <PersonDetail personId={selectedId} onDeleted={handleDeleted} onEdit={() => setDetailTab("edit")} />}
 								{detailTab === "edit" && <PersonForm personId={selectedId} onSaved={handleSaved} onCancel={() => setDetailTab("detail")} />}
 								{detailTab === "debug" && <DebugView personId={selectedId} />}
 							</>
 						)}
-
-						{detailTab !== "create" && !selectedId && <div style={{ color: "#999", marginTop: 40, textAlign: "center" }}>Select a person from the list, or click + New.</div>}
+						{detailTab !== "create" && !selectedId && <div style={{ color: "var(--text-muted)", marginTop: 40, textAlign: "center" }}>Select a person, or click + New.</div>}
 					</>
 				)}
 			</div>

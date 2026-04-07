@@ -1,109 +1,94 @@
+/* renderer/src/index.css — Indigo Dark theme */
 :root {
-	--text: #5b5f7a; /* cooler gray */
-	--text-h: #0f1222; /* slight blue tint */
-	--bg: #fff;
-	--border: #e0e3f0; /* subtle indigo tint */
-	--code-bg: #eef0ff; /* very light indigo wash */
-	--accent: #4f46e5; /* indigo-600 */
-	--accent-bg: rgba(79, 70, 229, 0.12);
-	--accent-border: rgba(79, 70, 229, 0.5);
-	--social-bg: rgba(244, 243, 236, 0.5);
-	--shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* ── Core surfaces ── */
+  --color-bg:        #0f172a;
+  --color-surface:   #1e1b4b;
+  --color-surface-2: #1e293b;
+  --color-surface-3: #2d2a6e;
+  --color-hover:     #312e81;
+  --color-border:    #3730a3;
+  --color-border-2:  #4338ca;
 
-	--sans: system-ui, "Segoe UI", Roboto, sans-serif;
-	--heading: system-ui, "Segoe UI", Roboto, sans-serif;
-	--mono: ui-monospace, Consolas, monospace;
+  /* ── Brand ── */
+  --color-primary:   #6366f1;
+  --color-accent:    #818cf8;
+  --color-active:    #4f46e5;
 
-	font: 18px/145% var(--sans);
-	letter-spacing: 0.18px;
-	color-scheme: light dark;
-	color: var(--text);
-	background: var(--bg);
-	font-synthesis: none;
-	text-rendering: optimizeLegibility;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
+  /* ── Semantic ── */
+  --color-danger:    #ef4444;
+  --color-success:   #22c55e;
+  --color-warning:   #f59e0b;
 
-	@media (max-width: 1024px) {
-		font-size: 16px;
-	}
+  /* ── Text ── */
+  --color-text:         #e0e7ff;
+  --color-text-muted:   #94a3b8;
+  --color-text-faint:   #475569;
+  --color-text-on-primary: #ffffff;
+
+  /* ── Overlay ── */
+  --overlay-bg: rgba(0, 0, 10, 0.65);
+
+  /* ── Layout ── */
+  --nav-width:     110px;
+  --sidebar-width: 210px;
+
+  /* ── Typography ── */
+  --font-mono:      'Courier New', Courier, monospace;
+  --font-size-base: 13px;
+  --font-size-sm:   11px;
+  --font-size-xs:   10px;
+
+  /* ── Shape ── */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Divider ── */
+  --divider: 1px solid var(--color-border);
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		--text: #a5b0d6; /* cool readable gray */
-		--text-h: #e8ecff; /* slightly bluish white */
-		--bg: #0f111a; /* deeper blue-black */
-		--border: #2a2f4a; /* indigo border */
-		--code-bg: #1a1d2e; /* indigo-tinted surface */
-		--accent: #818cf8; /* indigo-400 */
-		--accent-bg: rgba(129, 140, 248, 0.15);
-		--accent-border: rgba(129, 140, 248, 0.5);
-		--social-bg: rgba(47, 48, 58, 0.5);
-		--shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-	}
-
-	#social .button-icon {
-		filter: invert(1) brightness(2);
-	}
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-	margin: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
 }
 
-#root {
-	width: 1126px;
-	max-width: 100%;
-	margin: 0 auto;
-	text-align: center;
-	border-inline: 1px solid var(--border);
-	min-height: 100svh;
-	display: flex;
-	flex-direction: column;
-	box-sizing: border-box;
+button {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
 }
 
-h1,
-h2 {
-	font-family: var(--heading);
-	font-weight: 500;
-	color: var(--text-h);
+input, select, textarea {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
-h1 {
-	font-size: 56px;
-	letter-spacing: -1.68px;
-	margin: 32px 0;
-	@media (max-width: 1024px) {
-		font-size: 36px;
-		margin: 20px 0;
-	}
-}
-h2 {
-	font-size: 24px;
-	line-height: 118%;
-	letter-spacing: -0.24px;
-	margin: 0 0 8px;
-	@media (max-width: 1024px) {
-		font-size: 20px;
-	}
-}
-p {
-	margin: 0;
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-faint);
 }
 
-code,
-.counter {
-	font-family: var(--mono);
-	display: inline-flex;
-	border-radius: 4px;
-	color: var(--text-h);
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
-code {
-	font-size: 15px;
-	line-height: 135%;
-	padding: 4px 8px;
-	background: var(--code-bg);
+select option {
+  background: var(--color-surface);
+  color: var(--color-text);
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }

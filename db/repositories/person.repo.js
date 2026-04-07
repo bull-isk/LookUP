@@ -1,6 +1,9 @@
 // db/repositories/person.repo.js
 const { getDb } = require("../connection");
 
+// ADD at the top, after: const { getDb } = require('../connection');
+const { pruneOrphanTags } = require("./lookup.repo");
+
 // ── INTERNAL HELPER ──────────────────────────────────────────────
 // Called by child.repo after any child create/update/delete.
 // Exported so child.repo can import it without circular deps.
@@ -72,26 +75,30 @@ function getFullPerson(id) {
     `,
 			)
 			.all(id),
+		// In person.repo.js — replace the eduHistory and orgHistory queries inside getFullPerson():
+
 		eduHistory: db
 			.prepare(
 				`
-      SELECT eh.EduHistID, eh.StartYear, eh.EndYear, eh.FieldOfStudy,
-             ai.InstitutionName, el.LevelName
-      FROM EduHistory eh
-      JOIN AcademicInst ai ON eh.InstID = ai.InstID
-      JOIN EduLevel el ON eh.EduLevelID = el.EduLevelID
-      WHERE eh.PersonID = ?
-    `,
+          SELECT EduHistID,
+                InstitutionText, CityText, Faculty, Major,
+                StartYearText, EndYearText,
+                FieldOfStudy, StartYear, EndYear  -- legacy fields kept for data that predates migration
+          FROM EduHistory
+          WHERE PersonID = ?
+        `,
 			)
 			.all(id),
+
 		orgHistory: db
 			.prepare(
 				`
-      SELECT oh.OrgHistID, oh.Division, oh.StartYear, oh.EndYear, o.OrgName
-      FROM OrgHistory oh
-      JOIN Organization o ON oh.OrgID = o.OrgID
-      WHERE oh.PersonID = ?
-    `,
+          SELECT OrgHistID,
+                OrgNameText, Role, StartYearText, EndYearText,
+                Division, StartYear, EndYear  -- legacy fields
+          FROM OrgHistory
+          WHERE PersonID = ?
+        `,
 			)
 			.all(id),
 		notes: db.prepare(`SELECT NotesID, Note FROM Notes WHERE PersonID = ?`).all(id),
@@ -99,11 +106,11 @@ function getFullPerson(id) {
 		wordMouths: db
 			.prepare(
 				`
-      SELECT wm.WordMouthID, wm.Quote, wm.Date,
-             p.FullName as SayerName, wm.SayerID
-      FROM WordMouth wm
-      LEFT JOIN Person p ON wm.SayerID = p.PersonID
-      WHERE wm.PersonID = ?
+          SELECT wm.WordMouthID, wm.Quote, wm.Date,
+                p.FullName as SayerName, wm.SayerID
+          FROM WordMouth wm
+          LEFT JOIN Person p ON wm.SayerID = p.PersonID
+          WHERE wm.PersonID = ?
     `,
 			)
 			.all(id),
@@ -185,8 +192,11 @@ const syncJunction = (table, fkCol) => (personId, ids) => {
 };
 
 const setPersonPronouns = syncJunction("PersonPronouns", "PronounsID");
-const setPersonTags = syncJunction("PersonTag", "TagID");
-
+const setPersonTags = (personId, ids) => {
+	syncJunction("PersonTag", "TagID")(personId, ids);
+	// Phase B: remove tags that no longer have any linked persons
+	pruneOrphanTags();
+};
 // ── BIRTHDAY QUERY ───────────────────────────────────────────────
 // Returns all persons who have a Birthdate, with Category info.
 // Birthday math (days until next) is done in JS — see birthday.js util.
@@ -296,6 +306,36 @@ function getPeopleByTag() {
 	}));
 }
 
+// ── SEARCH ───────────────────────────────────────────────────────
+// Searches FullName, Nickname, and Tags. Returns ranked results.
+function searchPersons(query) {
+	if (!query || !query.trim()) return [];
+	const db = getDb();
+	const q = `%${query.trim().toLowerCase()}%`;
+
+	return db
+		.prepare(
+			`
+    SELECT DISTINCT
+      p.PersonID, p.FullName, p.Nickname,
+      c.CategoryName, c.HexCode as CategoryColor
+    FROM Person p
+    LEFT JOIN Category c ON p.CategoryID = c.CategoryID
+    LEFT JOIN PersonTag pt ON p.PersonID = pt.PersonID
+    LEFT JOIN Tags t ON pt.TagID = t.TagID
+    WHERE lower(p.FullName) LIKE ?
+       OR lower(p.Nickname) LIKE ?
+       OR lower(t.TagName) LIKE ?
+    ORDER BY
+      -- Exact name match ranked first
+      CASE WHEN lower(p.FullName) = lower(?) THEN 0 ELSE 1 END,
+      p.FullName
+    LIMIT 30
+  `,
+		)
+		.all(q, q, q, query.trim());
+}
+
 module.exports = {
 	touchLastUpdated,
 	getAllPersons,
@@ -309,4 +349,5 @@ module.exports = {
 	getRecentlyUpdated,
 	getFavorites,
 	getPeopleByTag,
+	searchPersons,
 };

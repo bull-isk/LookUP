@@ -3,135 +3,112 @@ import { useState, useEffect } from "react";
 
 const api = window.electronAPI;
 
-const S = {
-	tagSection: {
-		marginBottom: 24,
-		paddingBottom: 12,
-		borderBottom: "1px solid #2a2f4a",
-	},
-
-	tagHeader: {
-		fontWeight: "bold",
-		fontSize: 14,
-		marginBottom: 8,
-		display: "flex",
-		alignItems: "center",
-		gap: 8,
-		color: "#e8ecff",
-	},
-
-	count: {
-		fontSize: 11,
-		color: "#7c84b6",
-		fontWeight: "normal",
-	},
-
-	personRow: {
-		display: "inline-flex",
-		flexDirection: "column",
-		margin: "0 8px 8px 0",
-		padding: "5px 10px",
-		border: "1px solid #3a3f63",
-		borderRadius: 4,
-		cursor: "pointer",
-		background: "#1a1d2e", // indigo surface
-		minWidth: 80,
-		verticalAlign: "top",
-	},
-
-	name: {
-		fontWeight: "bold",
-		fontSize: 13,
-		color: "#e8ecff",
-	},
-
-	nick: {
-		fontSize: 11,
-		color: "#8f97c9",
-	},
-
-	cat: (color) => ({
-		fontSize: 10,
-		padding: "1px 4px",
-		borderRadius: 2,
-		marginTop: 2,
-		background: color ? color + "55" : "#2a2f4a",
-		display: "inline-block",
-		color: "#d6dcff",
-	}),
-
-	empty: {
-		color: "#6b729c",
-		fontStyle: "italic",
-		fontSize: 12,
-	},
-
-	untagged: {
-		marginTop: 20,
-		paddingTop: 12,
-		borderTop: "1px dashed #3a3f63",
-		color: "#7c84b6",
-		fontSize: 12,
-	},
-};
-
-function PersonChip({ person, onOpenPerson }) {
-	return (
-		<div style={S.personRow} onClick={() => onOpenPerson(person.PersonID)}>
-			<span style={S.name}>{person.FullName}</span>
-			{person.Nickname && <span style={S.nick}>{person.Nickname}</span>}
-			{person.CategoryName && <span style={S.cat(person.CategoryColor)}>{person.CategoryName}</span>}
-		</div>
-	);
-}
-
 export default function TagsPage({ onOpenPerson }) {
-	const [tagGroups, setTagGroups] = useState(null);
-	const [untaggedCount, setUntaggedCount] = useState(0);
+	const [tags, setTags] = useState([]); // [{ TagID, TagName, personCount }]
+	const [selectedTag, setSelectedTag] = useState(null); // { TagID, TagName }
+	const [persons, setPersons] = useState([]);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		Promise.all([api.personByTag(), api.personList()]).then(([groups, allPersons]) => {
-			setTagGroups(groups);
-
-			// Compute untagged count
-			const taggedIds = new Set(groups.flatMap((g) => g.people.map((p) => p.PersonID)));
-			setUntaggedCount(allPersons.filter((p) => !taggedIds.has(p.PersonID)).length);
+		api.lookupTagsWithCounts().then((t) => {
+			setTags(t);
+			setLoading(false);
 		});
 	}, []);
 
-	if (!tagGroups) return <div>Loading...</div>;
+	const openTag = (tag) => {
+		setSelectedTag(tag);
+		api.lookupPersonsByTag(tag.TagID).then(setPersons);
+	};
 
+	const back = () => {
+		setSelectedTag(null);
+		setPersons([]);
+	};
+
+	if (loading) return <div style={{ color: "var(--text-muted)" }}>Loading…</div>;
+
+	// ── Tag list view ─────────────────────────────────────────────
+	if (!selectedTag) {
+		return (
+			<div>
+				<h2 style={{ marginTop: 0 }}>Tags</h2>
+				<div style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)", marginBottom: 16 }}>
+					{tags.length} tag{tags.length !== 1 ? "s" : ""} in use. Click a tag to see its people.
+				</div>
+
+				{tags.length === 0 && <div style={{ color: "var(--text-faint)", fontStyle: "italic" }}>No tags assigned yet. Edit a person to add tags.</div>}
+
+				{tags.map((tag) => (
+					<div
+						key={tag.TagID}
+						onClick={() => openTag(tag)}
+						style={{
+							padding: "8px 12px",
+							marginBottom: 4,
+							cursor: "pointer",
+							borderRadius: "var(--radius-md)",
+							border: "1px solid var(--border-secondary)",
+							background: "var(--bg-secondary)",
+							display: "flex",
+							alignItems: "center",
+							gap: 10,
+						}}
+						onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+						onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-secondary)")}
+					>
+						<span style={{ fontWeight: "bold" }}>🏷 {tag.TagName}</span>
+						<span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>
+							{tag.personCount} person{tag.personCount !== 1 ? "s" : ""}
+						</span>
+						<span style={{ marginLeft: "auto", color: "var(--text-muted)", fontSize: "var(--font-size-xs)" }}>→</span>
+					</div>
+				))}
+			</div>
+		);
+	}
+
+	// ── Single tag drill-down view ─────────────────────────────────
 	return (
 		<div>
-			<h2 style={{ marginTop: 0 }}>Tags</h2>
-			<div style={{ color: "#666", fontSize: 12, marginBottom: 16 }}>
-				{tagGroups.length} tag{tagGroups.length !== 1 ? "s" : ""} in use.
-				{untaggedCount > 0 && ` ${untaggedCount} person${untaggedCount !== 1 ? "s" : ""} have no tags.`}
+			<div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+				<button onClick={back} style={{ border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", padding: "3px 8px", borderRadius: "var(--radius-sm)" }}>
+					← Back
+				</button>
+				<h2 style={{ margin: 0 }}>🏷 {selectedTag.TagName}</h2>
+				<span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>
+					{persons.length} person{persons.length !== 1 ? "s" : ""} · sorted by recently updated
+				</span>
 			</div>
 
-			{tagGroups.length === 0 && <div style={S.empty}>No tags assigned yet. Edit a person to add tags.</div>}
+			{persons.length === 0 && <div style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No people with this tag.</div>}
 
-			{tagGroups.map((group) => (
-				<div key={group.TagID} style={S.tagSection}>
-					<div style={S.tagHeader}>
-						🏷 {group.TagName}
-						<span style={S.count}>
-							{group.people.length} person{group.people.length !== 1 ? "s" : ""}
-						</span>
-					</div>
-					<div>
-						{group.people.map((p) => (
-							<PersonChip key={p.PersonID} person={p} onOpenPerson={onOpenPerson} />
-						))}
-					</div>
+			{persons.map((p) => (
+				<div
+					key={p.PersonID}
+					onClick={() => onOpenPerson(p.PersonID)}
+					style={{
+						padding: "8px 12px",
+						marginBottom: 4,
+						cursor: "pointer",
+						borderRadius: "var(--radius-md)",
+						border: "1px solid var(--border-secondary)",
+						background: "var(--bg-secondary)",
+						display: "flex",
+						alignItems: "baseline",
+						gap: 8,
+					}}
+					onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+					onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-secondary)")}
+				>
+					{p.CategoryColor && (
+						<span style={{ fontSize: "var(--font-size-xs)", padding: "1px 5px", borderRadius: "var(--radius-sm)", background: p.CategoryColor + "33" }}>{p.CategoryName}</span>
+					)}
+					<span style={{ fontWeight: "bold" }}>{p.FullName}</span>
+					{p.Nickname && <span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>({p.Nickname})</span>}
+					{p.LastUpdated && <span style={{ marginLeft: "auto", color: "var(--text-muted)", fontSize: "var(--font-size-xs)" }}>{p.LastUpdated.slice(0, 10)}</span>}
 				</div>
 			))}
-
-			{untaggedCount > 0 && (
-				<div style={S.untagged}>
-					{untaggedCount} person{untaggedCount !== 1 ? "s" : ""} not assigned to any tag. Use the Edit tab on each person to add tags.
-				</div>
-			)}
 		</div>
 	);
 }

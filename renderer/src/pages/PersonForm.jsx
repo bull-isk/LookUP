@@ -1,118 +1,79 @@
 // renderer/src/pages/PersonForm.jsx
+// Simplified: Create only. 3 fields. No edit flow (handled inline in PersonDetail).
 import { useState, useEffect } from "react";
-import { personCreate, personUpdate, personFull, personSetPronouns, personSetTags, lookupAll } from "../api/bridge";
+import { personCreate, lookupAll } from "../api/bridge";
 
-const field = { display: "block", marginBottom: 8 };
-const input = { width: "100%", padding: 4, boxSizing: "border-box" };
-const section = { marginTop: 16, paddingTop: 8, borderTop: "1px solid #ddd" };
+const I = {
+	// shared input style key
+	width: "100%",
+	padding: "6px 8px",
+	border: "1px solid var(--color-border)",
+	borderRadius: "var(--radius-sm)",
+	background: "var(--color-surface-2)",
+	color: "var(--color-text)",
+	marginTop: 4,
+};
 
-export default function PersonForm({ personId, onSaved, onCancel }) {
-	const isEdit = !!personId;
-	const [lookups, setLookups] = useState(null);
-	const [form, setForm] = useState({
-		FullName: "",
-		Nickname: "",
-		Birthdate: "",
-		Address: "",
-		ImpressionNote: "",
-		TimezoneID: "",
-		CategoryID: "",
-	});
-	const [selectedPronouns, setSelectedPronouns] = useState([]);
-	const [selectedTags, setSelectedTags] = useState([]);
+export default function PersonForm({ onSaved, onCancel }) {
+	const [name, setName] = useState("");
+	const [nick, setNick] = useState("");
+	const [catId, setCatId] = useState("");
+	const [cats, setCats] = useState([]);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
-		lookupAll().then(setLookups);
-		if (isEdit) {
-			personFull(personId).then((data) => {
-				if (!data) return;
-				const p = data.person;
-				setForm({
-					FullName: p.FullName || "",
-					Nickname: p.Nickname || "",
-					Birthdate: p.Birthdate || "",
-					Address: p.Address || "",
-					ImpressionNote: p.ImpressionNote || "",
-					TimezoneID: p.TimezoneID || "",
-					CategoryID: p.CategoryID || "",
-				});
-				setSelectedPronouns(data.pronouns.map((x) => x.PronounsID));
-				setSelectedTags(data.tags.map((x) => x.TagID));
-			});
-		}
-	}, [personId]);
-
-	const set = (f) => (e) => setForm((prev) => ({ ...prev, [f]: e.target.value }));
-
-	const toggleMulti = (arr, setArr, id) => {
-		setArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-	};
+		lookupAll().then((d) => setCats(d.categories));
+	}, []);
 
 	const handleSubmit = async () => {
-		if (!form.FullName.trim()) {
+		if (!name.trim()) {
 			setError("Full name is required.");
 			return;
 		}
 		setSaving(true);
 		setError("");
 		try {
-			const payload = {
-				...form,
-				TimezoneID: form.TimezoneID ? Number(form.TimezoneID) : null,
-				CategoryID: form.CategoryID ? Number(form.CategoryID) : null,
-			};
-			let id = personId;
-			if (isEdit) {
-				await personUpdate(personId, payload);
-			} else {
-				id = await personCreate(payload);
-			}
-			await personSetPronouns(id, selectedPronouns);
-			await personSetTags(id, selectedTags);
+			const id = await personCreate({
+				FullName: name.trim(),
+				Nickname: nick.trim() || null,
+				CategoryID: catId ? Number(catId) : null,
+				Birthdate: null,
+				Address: null,
+				ImpressionNote: null,
+				TimezoneID: null,
+			});
 			onSaved(id);
 		} catch (e) {
-			setError(e.message || "Save failed.");
-		} finally {
+			setError(e.message || "Failed to create.");
 			setSaving(false);
 		}
 	};
 
-	if (!lookups) return <div>Loading form...</div>;
+	const handleKey = (e) => {
+		if (e.key === "Enter") handleSubmit();
+	};
 
 	return (
-		<div>
-			<h3>{isEdit ? "Edit Person" : "New Person"}</h3>
-			{error && <div style={{ color: "red", marginBottom: 8 }}>{error}</div>}
+		<div style={{ maxWidth: 400 }}>
+			<h3 style={{ margin: "0 0 16px", color: "var(--color-text)" }}>New Person</h3>
+			{error && <div style={{ color: "var(--color-danger)", marginBottom: 8 }}>{error}</div>}
 
-			<label style={field}>
+			<label style={{ display: "block", marginBottom: 12, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
 				Full Name *
-				<input style={input} value={form.FullName} onChange={set("FullName")} />
-			</label>
-			<label style={field}>
-				Nickname
-				<input style={input} value={form.Nickname} onChange={set("Nickname")} />
-			</label>
-			<label style={field}>
-				Birthdate
-				<input style={input} type="date" value={form.Birthdate} onChange={set("Birthdate")} />
-			</label>
-			<label style={field}>
-				Address
-				<input style={input} value={form.Address} onChange={set("Address")} />
-			</label>
-			<label style={field}>
-				Impression Note
-				<textarea style={{ ...input, height: 60 }} value={form.ImpressionNote} onChange={set("ImpressionNote")} />
+				<input autoFocus style={I} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Full name" />
 			</label>
 
-			{/* ── Category (new in Phase A) ─────────────────────────── */}
-			<label style={field}>
+			<label style={{ display: "block", marginBottom: 12, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+				Nickname
+				<input style={I} value={nick} onChange={(e) => setNick(e.target.value)} onKeyDown={handleKey} placeholder="Nickname (optional)" />
+			</label>
+
+			<label style={{ display: "block", marginBottom: 20, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
 				Category
-				<select style={input} value={form.CategoryID} onChange={set("CategoryID")}>
+				<select style={I} value={catId} onChange={(e) => setCatId(e.target.value)}>
 					<option value="">— none —</option>
-					{lookups.categories.map((c) => (
+					{cats.map((c) => (
 						<option key={c.CategoryID} value={c.CategoryID}>
 							{c.CategoryName}
 						</option>
@@ -120,45 +81,20 @@ export default function PersonForm({ personId, onSaved, onCancel }) {
 				</select>
 			</label>
 
-			<label style={field}>
-				Timezone
-				<select style={input} value={form.TimezoneID} onChange={set("TimezoneID")}>
-					<option value="">— none —</option>
-					{lookups.timezones.map((t) => (
-						<option key={t.TimezoneID} value={t.TimezoneID}>
-							{t.Name} ({t.GMTDifference}) — {t.AssociatedCity}
-						</option>
-					))}
-				</select>
-			</label>
-
-			<div style={section}>
-				<strong>Pronouns</strong>
-				<div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-					{lookups.pronouns.map((p) => (
-						<label key={p.PronounsID} style={{ cursor: "pointer" }}>
-							<input type="checkbox" checked={selectedPronouns.includes(p.PronounsID)} onChange={() => toggleMulti(selectedPronouns, setSelectedPronouns, p.PronounsID)} /> {p.Pronouns}
-						</label>
-					))}
-				</div>
-			</div>
-
-			<div style={section}>
-				<strong>Tags</strong>
-				<div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-					{lookups.tags.map((t) => (
-						<label key={t.TagID} style={{ cursor: "pointer" }}>
-							<input type="checkbox" checked={selectedTags.includes(t.TagID)} onChange={() => toggleMulti(selectedTags, setSelectedTags, t.TagID)} /> {t.TagName}
-						</label>
-					))}
-				</div>
-			</div>
-
-			<div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-				<button onClick={handleSubmit} disabled={saving}>
-					{saving ? "Saving..." : isEdit ? "Update Person" : "Create Person"}
+			<div style={{ display: "flex", gap: 8 }}>
+				<button
+					onClick={handleSubmit}
+					disabled={saving}
+					style={{ padding: "6px 18px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", fontWeight: "bold" }}
+				>
+					{saving ? "Creating…" : "Create"}
 				</button>
-				<button onClick={onCancel}>Cancel</button>
+				<button
+					onClick={onCancel}
+					style={{ padding: "6px 14px", background: "transparent", color: "var(--color-text-muted)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)" }}
+				>
+					Cancel
+				</button>
 			</div>
 		</div>
 	);
