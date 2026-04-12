@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 
 const api = window.electronAPI;
 
-export default function TagsPage({ onOpenPerson }) {
-	const [tags, setTags] = useState([]); // [{ TagID, TagName, personCount }]
-	const [selectedTag, setSelectedTag] = useState(null); // { TagID, TagName }
+export default function TagsPage({ onOpenPerson, initialTagName, onTagOpened }) {
+	const [tags, setTags] = useState([]);
+	const [selectedTag, setSelectedTag] = useState(null);
 	const [persons, setPersons] = useState([]);
 	const [loading, setLoading] = useState(true);
 
@@ -15,6 +15,17 @@ export default function TagsPage({ onOpenPerson }) {
 			setLoading(false);
 		});
 	}, []);
+
+	// When tags load and we have an initialTagName, open that tag immediately
+	useEffect(() => {
+		if (!initialTagName || loading || tags.length === 0) return;
+		const match = tags.find((t) => t.TagName.toLowerCase() === initialTagName.toLowerCase());
+		if (match) {
+			setSelectedTag(match);
+			api.lookupPersonsByTag(match.TagID).then(setPersons);
+			onTagOpened?.(); // clear initialTagName in App so navigating back works
+		}
+	}, [initialTagName, loading, tags]);
 
 	const openTag = (tag) => {
 		setSelectedTag(tag);
@@ -26,87 +37,99 @@ export default function TagsPage({ onOpenPerson }) {
 		setPersons([]);
 	};
 
-	if (loading) return <div style={{ color: "var(--text-muted)" }}>Loading…</div>;
+	if (loading) return <div style={{ color: "var(--color-text-muted)", padding: 20 }}>Loading…</div>;
 
-	// ── Tag list view ─────────────────────────────────────────────
-	if (!selectedTag) {
+	// ── Drill-down view ───────────────────────────────────────────
+	if (selectedTag) {
 		return (
 			<div>
-				<h2 style={{ marginTop: 0 }}>Tags</h2>
-				<div style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)", marginBottom: 16 }}>
-					{tags.length} tag{tags.length !== 1 ? "s" : ""} in use. Click a tag to see its people.
+				<div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+					<button
+						onClick={back}
+						style={{
+							border: "1px solid var(--color-border)",
+							background: "var(--color-surface-2)",
+							color: "var(--color-text)",
+							padding: "3px 8px",
+							borderRadius: "var(--radius-sm)",
+							cursor: "pointer",
+						}}
+					>
+						← Back
+					</button>
+					<h2 style={{ margin: 0, color: "var(--color-text)" }}>🏷 {selectedTag.TagName}</h2>
+					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+						{persons.length} person{persons.length !== 1 ? "s" : ""} · sorted by recently updated
+					</span>
 				</div>
 
-				{tags.length === 0 && <div style={{ color: "var(--text-faint)", fontStyle: "italic" }}>No tags assigned yet. Edit a person to add tags.</div>}
+				{persons.length === 0 && <div style={{ color: "var(--color-text-muted)", fontStyle: "italic" }}>No people with this tag.</div>}
 
-				{tags.map((tag) => (
+				{persons.map((p) => (
 					<div
-						key={tag.TagID}
-						onClick={() => openTag(tag)}
+						key={p.PersonID}
+						onClick={() => onOpenPerson(p.PersonID)}
 						style={{
 							padding: "8px 12px",
 							marginBottom: 4,
 							cursor: "pointer",
 							borderRadius: "var(--radius-md)",
-							border: "1px solid var(--border-secondary)",
-							background: "var(--bg-secondary)",
+							border: "1px solid var(--color-border)",
+							background: "var(--color-surface-2)",
 							display: "flex",
-							alignItems: "center",
-							gap: 10,
+							alignItems: "baseline",
+							gap: 8,
 						}}
-						onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
-						onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-secondary)")}
+						onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+						onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface-2)")}
 					>
-						<span style={{ fontWeight: "bold" }}>🏷 {tag.TagName}</span>
-						<span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>
-							{tag.personCount} person{tag.personCount !== 1 ? "s" : ""}
-						</span>
-						<span style={{ marginLeft: "auto", color: "var(--text-muted)", fontSize: "var(--font-size-xs)" }}>→</span>
+						{p.CategoryColor && (
+							<span style={{ fontSize: "var(--font-size-xs)", padding: "1px 5px", borderRadius: "var(--radius-sm)", background: p.CategoryColor + "33", color: "var(--color-text)" }}>
+								{p.CategoryName}
+							</span>
+						)}
+						<span style={{ fontWeight: "bold", color: "var(--color-text)" }}>{p.FullName}</span>
+						{p.Nickname && <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>({p.Nickname})</span>}
+						{p.LastUpdated && <span style={{ marginLeft: "auto", color: "var(--color-text-muted)", fontSize: "var(--font-size-xs)" }}>{p.LastUpdated.slice(0, 10)}</span>}
 					</div>
 				))}
 			</div>
 		);
 	}
 
-	// ── Single tag drill-down view ─────────────────────────────────
+	// ── Tag list view ─────────────────────────────────────────────
 	return (
 		<div>
-			<div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-				<button onClick={back} style={{ border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", padding: "3px 8px", borderRadius: "var(--radius-sm)" }}>
-					← Back
-				</button>
-				<h2 style={{ margin: 0 }}>🏷 {selectedTag.TagName}</h2>
-				<span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>
-					{persons.length} person{persons.length !== 1 ? "s" : ""} · sorted by recently updated
-				</span>
+			<h2 style={{ marginTop: 0, color: "var(--color-text)" }}>Tags</h2>
+			<div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginBottom: 16 }}>
+				{tags.length} tag{tags.length !== 1 ? "s" : ""} in use. Click to see people.
 			</div>
 
-			{persons.length === 0 && <div style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No people with this tag.</div>}
+			{tags.length === 0 && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic" }}>No tags yet. Add tags to people first.</div>}
 
-			{persons.map((p) => (
+			{tags.map((tag) => (
 				<div
-					key={p.PersonID}
-					onClick={() => onOpenPerson(p.PersonID)}
+					key={tag.TagID}
+					onClick={() => openTag(tag)}
 					style={{
 						padding: "8px 12px",
 						marginBottom: 4,
 						cursor: "pointer",
 						borderRadius: "var(--radius-md)",
-						border: "1px solid var(--border-secondary)",
-						background: "var(--bg-secondary)",
+						border: "1px solid var(--color-border)",
+						background: "var(--color-surface-2)",
 						display: "flex",
-						alignItems: "baseline",
-						gap: 8,
+						alignItems: "center",
+						gap: 10,
 					}}
-					onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
-					onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-secondary)")}
+					onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+					onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface-2)")}
 				>
-					{p.CategoryColor && (
-						<span style={{ fontSize: "var(--font-size-xs)", padding: "1px 5px", borderRadius: "var(--radius-sm)", background: p.CategoryColor + "33" }}>{p.CategoryName}</span>
-					)}
-					<span style={{ fontWeight: "bold" }}>{p.FullName}</span>
-					{p.Nickname && <span style={{ color: "var(--text-muted)", fontSize: "var(--font-size-sm)" }}>({p.Nickname})</span>}
-					{p.LastUpdated && <span style={{ marginLeft: "auto", color: "var(--text-muted)", fontSize: "var(--font-size-xs)" }}>{p.LastUpdated.slice(0, 10)}</span>}
+					<span style={{ fontWeight: "bold", color: "var(--color-text)" }}>🏷 {tag.TagName}</span>
+					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+						{tag.personCount} person{tag.personCount !== 1 ? "s" : ""}
+					</span>
+					<span style={{ marginLeft: "auto", color: "var(--color-text-muted)", fontSize: "var(--font-size-xs)" }}>→</span>
 				</div>
 			))}
 		</div>

@@ -47,13 +47,14 @@ export default function SearchPopup({ onSelect, onClose }) {
 			<div
 				onClick={(e) => e.stopPropagation()}
 				style={{
-					background: "var(--bg-primary)",
-					border: "1px solid var(--border-primary)",
-					width: 480,
-					maxHeight: 400,
+					background: "var(--color-surface)",
+					border: "1px solid var(--color-border-2)",
+					borderRadius: "var(--radius-lg)",
+					boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+					width: 460,
+					maxHeight: "80vh",
 					display: "flex",
 					flexDirection: "column",
-					borderRadius: "var(--radius-md)",
 				}}
 			>
 				{/* Search input */}

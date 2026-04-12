@@ -11,63 +11,58 @@ contextBridge.exposeInMainWorld('electronAPI', {
   personSetPronouns: (id, ids)   => ipcRenderer.invoke('person:setPronouns', id, ids),
   personSetTags:     (id, ids)   => ipcRenderer.invoke('person:setTags', id, ids),
   personSearch:      (q)         => ipcRenderer.invoke('person:search', q),
-
-  // Page data
   personBirthdays:       ()      => ipcRenderer.invoke('person:birthdays'),
   personRecentlyUpdated: (limit) => ipcRenderer.invoke('person:recentlyUpdated', limit),
   personFavorites:       (limit) => ipcRenderer.invoke('person:favorites', limit),
   personByTag:           ()      => ipcRenderer.invoke('person:byTag'),
 
-  // Quotes
+  // Child data
   quoteCreate: (d)       => ipcRenderer.invoke('quote:create', d),
   quoteUpdate: (id, d)   => ipcRenderer.invoke('quote:update', id, d),
   quoteDelete: (id)      => ipcRenderer.invoke('quote:delete', id),
-
-  // WordMouth
-  wmCreate: (d)          => ipcRenderer.invoke('wm:create', d),
-  wmUpdate: (id, d)      => ipcRenderer.invoke('wm:update', id, d),
-  wmDelete: (id)         => ipcRenderer.invoke('wm:delete', id),
-
-  // Notes
-  noteCreate: (d)        => ipcRenderer.invoke('note:create', d),
-  noteUpdate: (id, d)    => ipcRenderer.invoke('note:update', id, d),
-  noteDelete: (id)       => ipcRenderer.invoke('note:delete', id),
-
-  // Education
-  eduCreate: (d)         => ipcRenderer.invoke('edu:create', d),
-  eduUpdate: (id, d)     => ipcRenderer.invoke('edu:update', id, d),
-  eduDelete: (id)        => ipcRenderer.invoke('edu:delete', id),
-
-  // Org
-  orgCreate: (d)         => ipcRenderer.invoke('org:create', d),
-  orgUpdate: (id, d)     => ipcRenderer.invoke('org:update', id, d),
-  orgDelete: (id)        => ipcRenderer.invoke('org:delete', id),
-
-  // Social
-  socialCreate: (d)      => ipcRenderer.invoke('social:create', d),
-  socialDelete: (id)     => ipcRenderer.invoke('social:delete', id),
-
-  // Media
-  mediaCreate:  (d)         => ipcRenderer.invoke('media:create', d),
-  mediaLink:    (pid, mid)  => ipcRenderer.invoke('media:link', pid, mid),
-  mediaUnlink:  (pid, mid)  => ipcRenderer.invoke('media:unlink', pid, mid),
+  wmCreate:    (d)       => ipcRenderer.invoke('wm:create', d),
+  wmUpdate:    (id, d)   => ipcRenderer.invoke('wm:update', id, d),
+  wmDelete:    (id)      => ipcRenderer.invoke('wm:delete', id),
+  noteCreate:  (d)       => ipcRenderer.invoke('note:create', d),
+  noteUpdate:  (id, d)   => ipcRenderer.invoke('note:update', id, d),
+  noteDelete:  (id)      => ipcRenderer.invoke('note:delete', id),
+  eduCreate:   (d)       => ipcRenderer.invoke('edu:create', d),
+  eduUpdate:   (id, d)   => ipcRenderer.invoke('edu:update', id, d),
+  eduDelete:   (id)      => ipcRenderer.invoke('edu:delete', id),
+  orgCreate:   (d)       => ipcRenderer.invoke('org:create', d),
+  orgUpdate:   (id, d)   => ipcRenderer.invoke('org:update', id, d),
+  orgDelete:   (id)      => ipcRenderer.invoke('org:delete', id),
+  socialCreate:(d)       => ipcRenderer.invoke('social:create', d),
+  socialDelete:(id)      => ipcRenderer.invoke('social:delete', id),
+  mediaCreate: (d)       => ipcRenderer.invoke('media:create', d),
+  mediaLink:   (pid,mid) => ipcRenderer.invoke('media:link', pid, mid),
+  mediaUnlink: (pid,mid) => ipcRenderer.invoke('media:unlink', pid, mid),
 
   // Lookups
-  lookupAll:          ()     => ipcRenderer.invoke('lookup:all'),
-  lookupAddCategory:  (d)    => ipcRenderer.invoke('lookup:addCategory', d),
-  lookupAddPronoun:   (t)    => ipcRenderer.invoke('lookup:addPronoun', t),
-  lookupAddOrg:       (n)    => ipcRenderer.invoke('lookup:addOrg', n),
-  lookupAddInst:      (d)    => ipcRenderer.invoke('lookup:addInst', d),
-  lookupFindOrCreateTag: (n) => ipcRenderer.invoke('lookup:findOrCreateTag', n),
-  lookupTagsWithCounts:  ()  => ipcRenderer.invoke('lookup:tagsWithCounts'),
-  lookupPersonsByTag:    (id)=> ipcRenderer.invoke('lookup:personsByTag', id),
+  lookupAll:                  ()         => ipcRenderer.invoke('lookup:all'),
+  lookupAddCategory:          (d)        => ipcRenderer.invoke('lookup:addCategory', d),
+  lookupAddPronoun:           (t)        => ipcRenderer.invoke('lookup:addPronoun', t),
+  lookupAddOrg:               (n)        => ipcRenderer.invoke('lookup:addOrg', n),
+  lookupAddInst:              (d)        => ipcRenderer.invoke('lookup:addInst', d),
+  lookupFindOrCreateTag:      (n)        => ipcRenderer.invoke('lookup:findOrCreateTag', n),
+  lookupTagsWithCounts:       ()         => ipcRenderer.invoke('lookup:tagsWithCounts'),
+  lookupPersonsByTag:         (id)       => ipcRenderer.invoke('lookup:personsByTag', id),
+  lookupFindOrCreatePronoun:  (t)        => ipcRenderer.invoke('lookup:findOrCreatePronoun', t),
+  lookupPrunePronouns:        ()         => ipcRenderer.invoke('lookup:prunePronouns'),
+  lookupFindOrCreateCategory: (n, hex)   => ipcRenderer.invoke('lookup:findOrCreateCategory', n, hex),
+  lookupPruneCategories:      ()         => ipcRenderer.invoke('lookup:pruneCategories'),
 
-  // Specifics (Phase B)
-  specificsForPerson:    (pid)       => ipcRenderer.invoke('specifics:forPerson', pid),
-  specificsTree:         ()          => ipcRenderer.invoke('specifics:tree'),
-  specificsAddValue:     (d)         => ipcRenderer.invoke('specifics:addValue', d),
-  specificsUpdateValue:  (id, note)  => ipcRenderer.invoke('specifics:updateValue', id, note),
-  specificsDeleteValue:  (id)        => ipcRenderer.invoke('specifics:deleteValue', id),
-  specificsFindOrCreateSub:   (name)        => ipcRenderer.invoke('specifics:findOrCreateSub', name),
-  specificsFindOrCreatePoint: (subId, name) => ipcRenderer.invoke('specifics:findOrCreatePoint', subId, name),
+  specificsForPerson:         (pid)       => ipcRenderer.invoke('specifics:forPerson', pid),
+  specificsTree:              ()          => ipcRenderer.invoke('specifics:tree'),
+  specificsAddValue:          (d)         => ipcRenderer.invoke('specifics:addValue', d),
+  specificsUpdateValue:       (id, note)  => ipcRenderer.invoke('specifics:updateValue', id, note),
+  specificsDeleteValue:       (id)        => ipcRenderer.invoke('specifics:deleteValue', id),
+  specificsFindOrCreateSub:   (name)      => ipcRenderer.invoke('specifics:findOrCreateSub', name),
+  specificsFindOrCreatePoint: (sid, name) => ipcRenderer.invoke('specifics:findOrCreatePoint', sid, name),
+
+  socialUpdate:             (id, tag)     => ipcRenderer.invoke('social:update', id, tag),
+  personDeletePopulateTest: ()            => ipcRenderer.invoke('person:deletePopulateTest'),
+
+  openExternal:          (url)            => ipcRenderer.invoke('shell:openExternal', url),
+  lookupAddSocialPlatform:(name)          => ipcRenderer.invoke('lookup:addSocialPlatform', name),
 });

@@ -1,61 +1,35 @@
 // renderer/src/components/SpecificsEditor.jsx
 import { useState } from "react";
+import Chip from "./Chip";
 
 const api = window.electronAPI;
 
-// Default categories shown first in dropdown (spec requirement)
 const DEFAULT_CATS = ["Preferences", "Interests", "Characteristics", "Habits"];
 
-// ── Tiny shared styles ────────────────────────────────────────────
 const inp = {
-	width: "100%",
-	padding: "5px 8px",
+	padding: "4px 6px",
 	border: "1px solid var(--color-border)",
 	borderRadius: "var(--radius-sm)",
 	background: "var(--color-surface-2)",
 	color: "var(--color-text)",
-};
-const btnPrimary = {
-	padding: "4px 12px",
-	background: "var(--color-primary)",
-	color: "#fff",
-	border: "none",
-	borderRadius: "var(--radius-sm)",
-	cursor: "pointer",
-};
-const btnGhost = {
-	padding: "4px 10px",
-	background: "transparent",
-	border: "1px solid var(--color-border)",
-	borderRadius: "var(--radius-sm)",
-	color: "var(--color-text-muted)",
-	cursor: "pointer",
-};
-const btnDanger = {
-	padding: "2px 6px",
-	background: "transparent",
-	border: "none",
-	color: "var(--color-danger)",
-	cursor: "pointer",
-	fontSize: 12,
+	fontSize: "var(--font-size-sm)",
 };
 
-// ── 3-part Add popup ──────────────────────────────────────────────
-function AddPopup({ tree, onAdd, onClose }) {
-	// tree: [{ SubSpecificsID, SubName, points: [{PointID, PointName}] }]
-
-	const [catInput, setCatInput] = useState(""); // typed/selected category
-	const [subInput, setSubInput] = useState(""); // typed sub-specific (= point name)
-	const [valInput, setValInput] = useState(""); // value
-	const [catNew, setCatNew] = useState(false); // creating a brand new category
-
-	// Build ordered category list: defaults first, then others
+// ── Inline add form (shown below section header) ──────────────────
+function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 	const allCatNames = tree.map((s) => s.SubName);
 	const ordered = [...DEFAULT_CATS.filter((d) => allCatNames.includes(d)), ...allCatNames.filter((n) => !DEFAULT_CATS.includes(n))];
 
-	// SMART FILL: when user types a sub-specific that exists, auto-fill its category
+	const [catInput, setCatInput] = useState(preselectedCat || "");
+	const [catNew, setCatNew] = useState(false);
+	const [subInput, setSubInput] = useState("");
+	const [valInput, setValInput] = useState("");
+	const [showSug, setShowSug] = useState(false);
+
+	// Auto-fill category when sub-specific matches an existing point
 	const handleSubChange = (val) => {
 		setSubInput(val);
+		setShowSug(true);
 		if (!catInput) {
 			const match = tree.find((s) => s.points.some((p) => p.PointName.toLowerCase() === val.trim().toLowerCase()));
 			if (match) {
@@ -65,324 +39,315 @@ function AddPopup({ tree, onAdd, onClose }) {
 		}
 	};
 
-	// Points under current selected category (for suggestion)
-	const currentCat = tree.find((s) => s.SubName.toLowerCase() === catInput.toLowerCase());
-	const pointSuggestions = currentCat ? currentCat.points.map((p) => p.PointName).filter((n) => n.toLowerCase().includes(subInput.toLowerCase()) && n !== subInput) : [];
+	// Conflict check: if chosen sub exists under a different category, reject
+	const getConflict = () => {
+		if (!catInput || !subInput.trim()) return null;
+		const matchingSub = tree.find((s) => s.points.some((p) => p.PointName.toLowerCase() === subInput.trim().toLowerCase()));
+		if (matchingSub && matchingSub.SubName.toLowerCase() !== catInput.toLowerCase()) {
+			return matchingSub.SubName;
+		}
+		return null;
+	};
+
+	const pointSuggestions = (() => {
+		const currentCat = tree.find((s) => s.SubName.toLowerCase() === catInput.toLowerCase());
+		if (!currentCat || !subInput) return [];
+		return currentCat.points.map((p) => p.PointName).filter((n) => n.toLowerCase().includes(subInput.toLowerCase()) && n.toLowerCase() !== subInput.toLowerCase());
+	})();
 
 	const handleSave = async () => {
-		const cat = catNew ? catInput.trim() : catInput.trim();
+		const cat = catInput.trim();
 		const sub = subInput.trim();
 		const val = valInput.trim();
 		if (!cat || !sub || !val) return;
 
-		const subId = await api.specificsFindOrCreateSub(cat);
+		// Conflict: sub-specific belongs to a different category → revert to correct one
+		const conflict = getConflict();
+		const resolvedCat = conflict || cat;
+
+		const subId = await api.specificsFindOrCreateSub(resolvedCat);
 		const ptId = await api.specificsFindOrCreatePoint(subId, sub);
-		await api.specificsAddValue({ PersonID: onAdd.personId, PointID: ptId, SpecificNote: val });
-		onAdd.onDone();
+		await api.specificsAddValue({ PersonID: personId, PointID: ptId, SpecificNote: val });
+		onDone();
 		onClose();
 	};
 
-	return (
-		<div onClick={onClose} style={{ position: "fixed", inset: 0, background: "var(--overlay-bg)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-			<div
-				onClick={(e) => e.stopPropagation()}
-				style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", width: 380, padding: 20 }}
-			>
-				<div style={{ fontWeight: "bold", marginBottom: 14, color: "var(--color-text)" }}>Add Specific</div>
+	const conflict = getConflict();
 
-				{/* 1. Category */}
-				<label style={{ display: "block", marginBottom: 10, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
-					Category
-					{!catNew ? (
-						<select
-							style={{ ...inp, marginTop: 4 }}
+	return (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end", padding: "8px 0", marginBottom: 8, borderBottom: "1px solid var(--color-border)" }}>
+			{/* Category */}
+			<div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 120 }}>
+				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>Category</span>
+				{!catNew ? (
+					<select
+						style={{ ...inp, minWidth: 120 }}
+						value={catInput}
+						onChange={(e) => {
+							if (e.target.value === "__new__") {
+								setCatNew(true);
+								setCatInput("");
+							} else setCatInput(e.target.value);
+						}}
+					>
+						<option value="">— select —</option>
+						{ordered.map((n) => (
+							<option key={n} value={n}>
+								{n}
+							</option>
+						))}
+						<option value="__new__">+ New…</option>
+					</select>
+				) : (
+					<div style={{ display: "flex", gap: 4 }}>
+						<input
+							autoFocus
+							style={{ ...inp, width: 100 }}
+							placeholder="Category name"
 							value={catInput}
-							onChange={(e) => {
-								if (e.target.value === "__new__") {
-									setCatNew(true);
-									setCatInput("");
-								} else setCatInput(e.target.value);
-							}}
-						>
-							<option value="">— select —</option>
-							{ordered.map((n) => (
-								<option key={n} value={n}>
-									{n}
-								</option>
-							))}
-							<option value="__new__">+ New category…</option>
-						</select>
-					) : (
-						<div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-							<input
-								autoFocus
-								style={{ ...inp, flex: 1 }}
-								placeholder="New category name"
-								value={catInput}
-								onChange={(e) => setCatInput(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") document.getElementById("spec-sub-input")?.focus();
-								}}
-							/>
-							<button
-								style={btnGhost}
-								onClick={() => {
+							onChange={(e) => setCatInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") {
 									setCatNew(false);
 									setCatInput("");
-								}}
-							>
-								✕
-							</button>
-						</div>
-					)}
-				</label>
-
-				{/* 2. Sub-specific (= point name) */}
-				<label style={{ display: "block", marginBottom: 10, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)", position: "relative" }}>
-					Sub-specific
-					<input
-						id="spec-sub-input"
-						style={{ ...inp, marginTop: 4 }}
-						placeholder="e.g. Food, Hobbies, Strength…"
-						value={subInput}
-						onChange={(e) => handleSubChange(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") document.getElementById("spec-val-input")?.focus();
-						}}
-					/>
-					{/* Suggestion dropdown for existing points */}
-					{pointSuggestions.length > 0 && subInput && (
-						<div
+								}
+							}}
+						/>
+						<button
+							onClick={() => {
+								setCatNew(false);
+								setCatInput("");
+							}}
 							style={{
-								position: "absolute",
-								top: "100%",
-								left: 0,
-								right: 0,
-								zIndex: 10,
-								background: "var(--color-surface)",
+								padding: "2px 5px",
+								background: "transparent",
 								border: "1px solid var(--color-border)",
-								borderTop: "none",
-								borderRadius: "0 0 var(--radius-sm) var(--radius-sm)",
+								borderRadius: "var(--radius-sm)",
+								color: "var(--color-text-muted)",
+								cursor: "pointer",
 							}}
 						>
-							{pointSuggestions.slice(0, 5).map((s) => (
-								<div
-									key={s}
-									onMouseDown={() => setSubInput(s)}
-									style={{ padding: "5px 10px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
-									onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
-									onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-								>
-									{s}
-								</div>
-							))}
-						</div>
-					)}
-				</label>
+							✕
+						</button>
+					</div>
+				)}
+			</div>
 
-				{/* 3. Value */}
-				<label style={{ display: "block", marginBottom: 16, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
-					Value
-					<input
-						id="spec-val-input"
-						style={{ ...inp, marginTop: 4 }}
-						placeholder="e.g. Mie Ayam, Jazz, Reading…"
-						value={valInput}
-						onChange={(e) => setValInput(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") handleSave();
+			{/* Sub-specific with suggestions */}
+			<div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 130, position: "relative" }}>
+				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+					Sub-specific
+					{conflict && <span style={{ color: "var(--color-danger)", marginLeft: 4 }}>→ will use "{conflict}"</span>}
+				</span>
+				<input
+					style={{ ...inp, width: 130 }}
+					placeholder="e.g. Food, Hobby…"
+					value={subInput}
+					onChange={(e) => handleSubChange(e.target.value)}
+					onFocus={() => setShowSug(true)}
+					onBlur={() => setTimeout(() => setShowSug(false), 150)}
+				/>
+				{showSug && pointSuggestions.length > 0 && (
+					<div
+						style={{
+							position: "absolute",
+							top: "100%",
+							left: 0,
+							zIndex: 50,
+							minWidth: 130,
+							background: "var(--color-surface)",
+							border: "1px solid var(--color-border)",
+							borderRadius: "var(--radius-sm)",
+							marginTop: 2,
+							overflow: "hidden",
 						}}
-					/>
-				</label>
+					>
+						{pointSuggestions.slice(0, 5).map((s) => (
+							<div
+								key={s}
+								onMouseDown={() => {
+									setSubInput(s);
+									setShowSug(false);
+								}}
+								style={{ padding: "4px 8px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
+								onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+								onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+							>
+								{s}
+							</div>
+						))}
+					</div>
+				)}
+			</div>
 
-				<div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-					<button style={btnGhost} onClick={onClose}>
-						Cancel
-					</button>
-					<button style={btnPrimary} onClick={handleSave}>
-						Add
-					</button>
-				</div>
+			{/* Value */}
+			<div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 100 }}>
+				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>Value</span>
+				<input
+					style={{ ...inp, width: "100%" }}
+					placeholder="e.g. Mie Ayam…"
+					value={valInput}
+					onChange={(e) => setValInput(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") handleSave();
+						if (e.key === "Escape") onClose();
+					}}
+				/>
+			</div>
+
+			<div style={{ display: "flex", gap: 6 }}>
+				<button onClick={handleSave} style={{ padding: "4px 12px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
+					Add
+				</button>
+				<button
+					onClick={onClose}
+					style={{
+						padding: "4px 8px",
+						background: "transparent",
+						border: "1px solid var(--color-border)",
+						borderRadius: "var(--radius-sm)",
+						color: "var(--color-text-muted)",
+						cursor: "pointer",
+					}}
+				>
+					Cancel
+				</button>
 			</div>
 		</div>
 	);
 }
 
-// ── Inline add-value row (inside existing point) ──────────────────
-function InlineAdd({ pointId, personId, onAdded }) {
-	const [open, setOpen] = useState(false);
-	const [val, setVal] = useState("");
+// ── Point row: label + chips + hover "+ Add" ──────────────────────
+function PointRow({ pt, personId, onReload }) {
+	const [rowHovered, setRowHovered] = useState(false);
+	const [addOpen, setAddOpen] = useState(false);
+	const [addVal, setAddVal] = useState("");
+	const [editingId, setEditingId] = useState(null);
+	const [editDraft, setEditDraft] = useState("");
 
-	const commit = async () => {
-		if (!val.trim()) return;
-		await api.specificsAddValue({ PersonID: personId, PointID: pointId, SpecificNote: val.trim() });
-		setVal("");
-		setOpen(false);
-		onAdded();
+	const commitAdd = async () => {
+		if (!addVal.trim()) {
+			setAddOpen(false);
+			return;
+		}
+		await api.specificsAddValue({ PersonID: personId, PointID: pt.PointID, SpecificNote: addVal.trim() });
+		setAddVal("");
+		setAddOpen(false);
+		onReload();
 	};
 
-	if (!open)
-		return (
-			<button onClick={() => setOpen(true)} style={{ ...btnGhost, fontSize: "var(--font-size-xs)", padding: "1px 6px", marginTop: 2 }}>
-				+ value
-			</button>
-		);
+	const commitEdit = async (specificsId) => {
+		const trimmed = editDraft.trim();
+		if (trimmed) await api.specificsUpdateValue(specificsId, trimmed);
+		setEditingId(null);
+		onReload();
+	};
 
 	return (
-		<div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-			<input
-				autoFocus
-				style={{ ...inp, flex: 1, padding: "2px 6px" }}
-				value={val}
-				onChange={(e) => setVal(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") commit();
-					if (e.key === "Escape") {
-						setOpen(false);
-						setVal("");
-					}
-				}}
-				placeholder="new value…"
-			/>
-			<button style={btnPrimary} onClick={commit}>
-				✓
-			</button>
-			<button
-				style={btnGhost}
-				onClick={() => {
-					setOpen(false);
-					setVal("");
-				}}
-			>
-				✕
-			</button>
+		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4, paddingLeft: 8 }}>
+			{/* Point label */}
+			<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 80, paddingTop: 3, flexShrink: 0 }}>{pt.PointName}</span>
+
+			{/* Values as chips */}
+			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+				{pt.values.map((v) =>
+					editingId === v.SpecificsID ? (
+						<Chip key={v.SpecificsID} editing editValue={editDraft} onEditChange={setEditDraft} onEditCommit={() => commitEdit(v.SpecificsID)} onEditCancel={() => setEditingId(null)} />
+					) : (
+						<Chip
+							key={v.SpecificsID}
+							label={v.SpecificNote}
+							onEdit={() => {
+								setEditDraft(v.SpecificNote);
+								setEditingId(v.SpecificsID);
+							}}
+							onDelete={async () => {
+								await api.specificsDeleteValue(v.SpecificsID);
+								onReload();
+							}}
+						/>
+					),
+				)}
+
+				{/* Inline add value */}
+				{addOpen ? (
+					<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+						<input
+							autoFocus
+							value={addVal}
+							onChange={(e) => setAddVal(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") commitAdd();
+								if (e.key === "Escape") {
+									setAddOpen(false);
+									setAddVal("");
+								}
+							}}
+							onBlur={() =>
+								setTimeout(() => {
+									setAddOpen(false);
+									setAddVal("");
+								}, 150)
+							}
+							placeholder="value…"
+							style={{ ...inp, width: 90, padding: "2px 5px" }}
+						/>
+						<button
+							onClick={commitAdd}
+							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+						>
+							✓
+						</button>
+					</span>
+				) : (
+					rowHovered && <Chip addChip onAdd={() => setAddOpen(true)} />
+				)}
+			</div>
 		</div>
 	);
 }
 
-// ── Single editable value ─────────────────────────────────────────
-function ValueChip({ value, onUpdate, onDelete }) {
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(value.SpecificNote);
-
-	const save = async () => {
-		const trimmed = draft.trim();
-		if (trimmed && trimmed !== value.SpecificNote) {
-			await api.specificsUpdateValue(value.SpecificsID, trimmed);
-			onUpdate();
-		}
-		setEditing(false);
-	};
-
-	if (editing)
-		return (
-			<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-				<input
-					autoFocus
-					value={draft}
-					onChange={(e) => setDraft(e.target.value)}
-					onKeyDown={(e) => {
-						if (e.key === "Enter") save();
-						if (e.key === "Escape") {
-							setDraft(value.SpecificNote);
-							setEditing(false);
-						}
-					}}
-					style={{ ...inp, width: 120, padding: "1px 4px", display: "inline" }}
-				/>
-				<button style={{ ...btnPrimary, padding: "1px 5px" }} onClick={save}>
-					✓
-				</button>
-				<button
-					style={btnGhost}
-					onClick={() => {
-						setDraft(value.SpecificNote);
-						setEditing(false);
-					}}
-				>
-					✕
-				</button>
-			</span>
-		);
-
-	return (
-		<span
-			style={{
-				display: "inline-flex",
-				alignItems: "center",
-				gap: 3,
-				background: "var(--color-surface-3)",
-				color: "var(--color-text)",
-				borderRadius: "var(--radius-sm)",
-				padding: "1px 7px",
-				marginRight: 4,
-				marginBottom: 2,
-				fontSize: "var(--font-size-sm)",
-			}}
-		>
-			<span onClick={() => setEditing(true)} style={{ cursor: "pointer" }}>
-				{value.SpecificNote}
-			</span>
-			<span
-				onClick={async () => {
-					await api.specificsDeleteValue(value.SpecificsID);
-					onDelete();
-				}}
-				style={{ cursor: "pointer", color: "var(--color-danger)", fontSize: 10, opacity: 0.7 }}
-			>
-				×
-			</span>
-		</span>
-	);
-}
-
 // ── Main export ───────────────────────────────────────────────────
-export default function SpecificsEditor({ specifics, tree, personId, onReload }) {
-	const [showPopup, setShowPopup] = useState(false);
+export default function SpecificsEditor({ specifics, tree, personId, onReload, showHeader = false }) {
+	const [addOpen, setAddOpen] = useState(false);
 
 	return (
 		<div>
-			{/* Render existing specifics: Category → Point : Values */}
-			{specifics.length === 0 && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)", marginBottom: 8 }}>No specifics yet.</div>}
+			{/* When showHeader=true, render "SPECIFICS" label + + Add on one row */}
+			<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+				{showHeader && <div style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "var(--color-accent)" }}>Specifics</div>}
+				{!addOpen && (
+					<button
+						onClick={() => setAddOpen(true)}
+						style={{
+							padding: "2px 8px",
+							background: "transparent",
+							border: "1px solid var(--color-border)",
+							borderRadius: "var(--radius-sm)",
+							color: "var(--color-text-muted)",
+							cursor: "pointer",
+							fontSize: "var(--font-size-xs)",
+						}}
+					>
+						+ Add
+					</button>
+				)}
+			</div>
+
+			{addOpen && <InlineAddForm tree={tree} personId={personId} onDone={onReload} onClose={() => setAddOpen(false)} />}
+
+			{specifics.length === 0 && !addOpen && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No specifics yet.</div>}
 
 			{specifics.map((sub) => (
 				<div key={sub.SubSpecificsID} style={{ marginBottom: 12 }}>
-					{/* Category label */}
-					<div
-						style={{
-							fontSize: "var(--font-size-xs)",
-							fontWeight: "bold",
-							textTransform: "uppercase",
-							letterSpacing: 1,
-							color: "var(--color-accent)",
-							marginBottom: 4,
-						}}
-					>
+					<div style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "var(--color-accent)", marginBottom: 4 }}>
 						{sub.SubName}
 					</div>
-
 					{sub.points.map((pt) => (
-						<div key={pt.PointID} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4, paddingLeft: 8 }}>
-							{/* Point label */}
-							<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 80, paddingTop: 2, flexShrink: 0 }}>{pt.PointName}</span>
-							{/* Values */}
-							<div style={{ flex: 1 }}>
-								{pt.values.map((v) => (
-									<ValueChip key={v.SpecificsID} value={v} onUpdate={onReload} onDelete={onReload} />
-								))}
-								<InlineAdd pointId={pt.PointID} personId={personId} onAdded={onReload} />
-							</div>
-						</div>
+						<PointRow key={pt.PointID} pt={pt} personId={personId} onReload={onReload} />
 					))}
 				</div>
 			))}
-
-			{/* Add button */}
-			<button onClick={() => setShowPopup(true)} style={{ ...btnGhost, marginTop: 4, fontSize: "var(--font-size-sm)" }}>
-				+ Add Specific
-			</button>
-
-			{showPopup && <AddPopup tree={tree} onAdd={{ personId, onDone: onReload }} onClose={() => setShowPopup(false)} />}
 		</div>
 	);
 }

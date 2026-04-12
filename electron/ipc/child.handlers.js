@@ -29,6 +29,7 @@ module.exports = function registerChildHandlers() {
 
   ipcMain.handle('social:create',   (_, d) => c.createSocial(d));
   ipcMain.handle('social:delete',   (_, id) => c.deleteSocial(id));
+  ipcMain.handle('social:update', (_, id, tag) => c.updateSocial(id, tag));
 
   ipcMain.handle('media:create',    (_, d) => c.createMedia(d));
   ipcMain.handle('media:link',      (_, personId, mediaId) => c.linkMedia(personId, mediaId));

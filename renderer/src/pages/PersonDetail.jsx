@@ -1,5 +1,5 @@
 // renderer/src/pages/PersonDetail.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
 	personFull,
 	personDelete,
@@ -23,6 +23,7 @@ import {
 	orgUpdate,
 	orgDelete,
 	socialCreate,
+	socialUpdate,
 	socialDelete,
 	mediaCreate,
 	mediaLink,
@@ -30,11 +31,17 @@ import {
 } from "../api/bridge";
 import SpecificsEditor from "../components/SpecificsEditor";
 import TagInput from "../components/TagInput";
+import PronounInput from "../components/PronounInput";
+import CategoryInput from "../components/CategoryInput";
+import SocialChip from "../components/SocialChip";
 import QuickAdd from "../components/QuickAdd";
 
 const api = window.electronAPI;
 
-// ── Shared micro-styles (all use CSS vars) ────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────
+const today = () => new Date().toISOString().slice(0, 10);
+
+// ── Shared styles ─────────────────────────────────────────────────
 const iStyle = {
 	padding: "4px 6px",
 	border: "1px solid var(--color-border)",
@@ -43,52 +50,77 @@ const iStyle = {
 	color: "var(--color-text)",
 	width: "100%",
 };
-const btnP = {
-	padding: "3px 10px",
-	background: "var(--color-primary)",
-	color: "#fff",
-	border: "none",
-	borderRadius: "var(--radius-sm)",
-	cursor: "pointer",
-};
-const btnD = {
-	padding: "3px 8px",
-	background: "var(--color-danger)",
-	color: "#fff",
-	border: "none",
-	borderRadius: "var(--radius-sm)",
-	cursor: "pointer",
-};
-const btnG = {
-	padding: "3px 8px",
-	background: "transparent",
-	border: "1px solid var(--color-border)",
-	borderRadius: "var(--radius-sm)",
-	color: "var(--color-text-muted)",
-	cursor: "pointer",
-};
-const divider = {
-	borderTop: "1px solid var(--color-border)",
-	margin: "14px 0",
-};
-const sectionTitle = {
-	fontSize: "var(--font-size-xs)",
-	fontWeight: "bold",
-	textTransform: "uppercase",
-	letterSpacing: 1,
-	color: "var(--color-accent)",
-	marginBottom: 8,
-};
+const btnP = { padding: "4px 12px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" };
+const btnD = { padding: "3px 8px", background: "var(--color-danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" };
+const btnG = { padding: "3px 8px", background: "transparent", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", color: "var(--color-text-muted)", cursor: "pointer" };
+const divider = { borderTop: "1px solid var(--color-border)", margin: "14px 0" };
+const secTitle = { fontSize: "var(--font-size-xs)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "var(--color-accent)", marginBottom: 8 };
+const lbl = { fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)", marginBottom: 2, display: "block" };
 
-// ── Inline editable field ─────────────────────────────────────────
+// ── Overlay modal ─────────────────────────────────────────────────
+function Modal({ children, onClose, width = 420 }) {
+	return (
+		<div
+			onClick={onClose}
+			style={{
+				position: "fixed",
+				inset: 0,
+				background: "rgba(0,0,0,0.65)",
+				zIndex: 500,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+			}}
+		>
+			<div
+				onClick={(e) => e.stopPropagation()}
+				style={{
+					background: "var(--color-surface)", // solid, NOT transparent
+					border: "1px solid var(--color-border-2)",
+					borderRadius: "var(--radius-lg)",
+					boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+					width,
+					maxHeight: "85vh",
+					display: "flex",
+					flexDirection: "column",
+					overflow: "hidden",
+				}}
+			>
+				{children}
+			</div>
+		</div>
+	);
+}
+
+// ── Hover-reveal edit/delete (for non-chip rows) ──────────────────
+function HoverRow({ children, onEdit, onDelete }) {
+	const [h, setH] = useState(false);
+	return (
+		<div onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 0" }}>
+			<div style={{ flex: 1 }}>{children}</div>
+			<div style={{ display: "flex", gap: 4, opacity: h ? 1 : 0, transition: "opacity 0.12s", flexShrink: 0 }}>
+				{onEdit && (
+					<button style={btnG} onClick={onEdit}>
+						✏
+					</button>
+				)}
+				{onDelete && (
+					<button style={btnD} onClick={onDelete}>
+						✕
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+// ── Click-to-edit inline field ────────────────────────────────────
 function InlineField({ label, value, onSave, textarea, placeholder }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(value || "");
-
 	useEffect(() => {
 		setDraft(value || "");
 	}, [value]);
-
 	const save = () => {
 		onSave(draft.trim());
 		setEditing(false);
@@ -130,42 +162,395 @@ function InlineField({ label, value, onSave, textarea, placeholder }) {
 		);
 
 	return (
-		<div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5, cursor: "pointer", group: true }} onClick={() => setEditing(true)} title="Click to edit">
+		<div onClick={() => setEditing(true)} title="Click to edit" style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5, cursor: "pointer" }}>
 			<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 2 }}>{label}</span>
-			<span style={{ flex: 1, color: value ? "var(--color-text)" : "var(--color-text-faint)", fontStyle: value ? "normal" : "italic" }}>
-				{value || placeholder || `(click to add ${label.toLowerCase()})`}
-			</span>
-			<span style={{ color: "var(--color-text-faint)", fontSize: 10, opacity: 0.5 }}>✏</span>
+			<span style={{ flex: 1, color: value ? "var(--color-text)" : "var(--color-text-faint)", fontStyle: value ? "normal" : "italic" }}>{value || placeholder || `(click to add)`}</span>
+			<span style={{ color: "var(--color-text-faint)", fontSize: 10, opacity: 0.4 }}>✏</span>
 		</div>
 	);
 }
 
-// ── Simple inline row for child data ─────────────────────────────
-function InlineForm({ fields, onSave, onCancel, initial = {} }) {
+// ── Popup form (education, org, quotes, notes, wm, media) ─────────
+function PopupForm({ title, fields, initial = {}, onSave, onClose }) {
 	const [vals, setVals] = useState(initial);
 	const set = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.value }));
-
+	const setChecked = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.checked }));
 	return (
-		<div style={{ background: "var(--color-surface-2)", padding: 10, borderRadius: "var(--radius-sm)", marginBottom: 8, border: "1px solid var(--color-border)" }}>
-			{fields.map((f) => (
-				<label key={f.key} style={{ display: "flex", flexDirection: "column", marginBottom: 6, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
-					{f.label}
-					{f.textarea ? (
-						<textarea style={{ ...iStyle, marginTop: 2, height: 50, resize: "vertical" }} value={vals[f.key] || ""} onChange={set(f.key)} />
-					) : (
-						<input style={{ ...iStyle, marginTop: 2 }} type={f.type || "text"} value={vals[f.key] || ""} onChange={set(f.key)} />
-					)}
-				</label>
-			))}
-			<div style={{ display: "flex", gap: 6 }}>
-				<button style={btnP} onClick={() => onSave(vals)}>
-					Save
-				</button>
-				<button style={btnG} onClick={onCancel}>
+		<Modal onClose={onClose} width={440}>
+			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>{title}</div>
+			<div style={{ padding: 18, overflowY: "auto" }}>
+				{fields.map((f) => {
+					if (f.type === "checkbox")
+						return (
+							<label
+								key={f.key}
+								style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}
+							>
+								<input type="checkbox" checked={!!vals[f.key]} onChange={setChecked(f.key)} />
+								{f.label}
+							</label>
+						);
+					if (f.type === "select")
+						return (
+							<label key={f.key} style={{ display: "flex", flexDirection: "column", marginBottom: 10, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+								{f.label}
+								<select style={{ ...iStyle, marginTop: 3 }} value={vals[f.key] || ""} onChange={set(f.key)}>
+									<option value="">— select —</option>
+									{f.options.map((o) => (
+										<option key={o} value={o}>
+											{o}
+										</option>
+									))}
+								</select>
+							</label>
+						);
+					return (
+						<label key={f.key} style={{ display: "flex", flexDirection: "column", marginBottom: 10, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							{f.label}
+							{f.textarea ? (
+								<textarea style={{ ...iStyle, marginTop: 3, height: 60, resize: "vertical" }} value={vals[f.key] || ""} onChange={set(f.key)} />
+							) : (
+								<input style={{ ...iStyle, marginTop: 3 }} type={f.inputType || "text"} value={vals[f.key] || ""} onChange={set(f.key)} />
+							)}
+						</label>
+					);
+				})}
+			</div>
+			<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+				<button style={btnG} onClick={onClose}>
 					Cancel
 				</button>
+				<button
+					style={btnP}
+					onClick={() => {
+						onSave(vals);
+						onClose();
+					}}
+				>
+					Save
+				</button>
+			</div>
+		</Modal>
+	);
+}
+
+// ADD before the PersonDetail export:
+function SocialRow({ plat, platformId, accs, onEdit, onDelete, onAdd }) {
+	const [rowHovered, setRowHovered] = useState(false);
+	const [addOpen, setAddOpen] = useState(false);
+	const [addHandle, setAddHandle] = useState("");
+
+	const commitAdd = async () => {
+		if (!addHandle.trim()) {
+			setAddOpen(false);
+			return;
+		}
+		await onAdd(platformId, addHandle.trim());
+		setAddHandle("");
+		setAddOpen(false);
+	};
+
+	return (
+		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}>
+			<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 4, flexShrink: 0 }}>{plat}</span>
+			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+				{accs.map((s) => (
+					<SocialChip key={s.SocialID} social={s} onEdit={onEdit} onDelete={onDelete} />
+				))}
+				{addOpen ? (
+					<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+						<input
+							autoFocus
+							value={addHandle}
+							onChange={(e) => setAddHandle(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") commitAdd();
+								if (e.key === "Escape") {
+									setAddOpen(false);
+									setAddHandle("");
+								}
+							}}
+							onBlur={() =>
+								setTimeout(() => {
+									setAddOpen(false);
+									setAddHandle("");
+								}, 150)
+							}
+							placeholder="handle…"
+							style={{
+								padding: "2px 6px",
+								border: "1px solid var(--color-accent)",
+								borderRadius: "var(--radius-sm)",
+								background: "var(--color-surface-2)",
+								color: "var(--color-text)",
+								fontSize: "var(--font-size-sm)",
+								width: 110,
+							}}
+						/>
+						<button
+							onClick={commitAdd}
+							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+						>
+							✓
+						</button>
+					</span>
+				) : (
+					rowHovered && (
+						<span
+							onClick={() => setAddOpen(true)}
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								padding: "2px 8px",
+								borderRadius: "var(--radius-sm)",
+								fontSize: "var(--font-size-sm)",
+								cursor: "pointer",
+								border: "1px dashed var(--color-border)",
+								color: "var(--color-text-faint)",
+								userSelect: "none",
+							}}
+						>
+							+ Add
+						</span>
+					)
+				)}
 			</div>
 		</div>
+	);
+}
+
+// ── Education popup form — handles conditional fields ─────────────
+const EDU_LEVELS = ["Primary School", "Middle School", "High School", "College", "Other"];
+
+function EduPopup({ title, initial = {}, onSave, onClose }) {
+	const [vals, setVals] = useState({
+		InstitutionText: "",
+		EduLevelText: "",
+		Faculty: "",
+		FieldOfStudy: "", // was Major — now unified field for both College major & HS field
+		StartYearText: "",
+		EndYearText: "",
+		IsPresent: false,
+		...initial,
+	});
+	const set = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.value }));
+
+	const showFieldOfStudy = vals.EduLevelText === "College" || vals.EduLevelText === "High School";
+	const showFaculty = vals.EduLevelText === "College";
+	const showEndYear = !!vals.StartYearText.trim() && !vals.IsPresent;
+
+	// Label adapts by level
+	const fieldLabel = vals.EduLevelText === "High School" ? "Subject Focus" : "Major";
+
+	return (
+		<Modal onClose={onClose} width={440}>
+			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>{title}</div>
+			<div style={{ padding: 18, overflowY: "auto" }}>
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Institution *</span>
+					<input style={{ ...iStyle, marginTop: 2 }} value={vals.InstitutionText} onChange={set("InstitutionText")} />
+				</label>
+
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Education Level</span>
+					<select style={{ ...iStyle, marginTop: 2 }} value={vals.EduLevelText} onChange={set("EduLevelText")}>
+						<option value="">— select —</option>
+						{EDU_LEVELS.map((l) => (
+							<option key={l} value={l}>
+								{l}
+							</option>
+						))}
+					</select>
+				</label>
+
+				{/* College: Faculty */}
+				{showFaculty && (
+					<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+						<span style={lbl}>Faculty</span>
+						<input style={{ ...iStyle, marginTop: 2 }} value={vals.Faculty} onChange={set("Faculty")} />
+					</label>
+				)}
+
+				{/* College or High School: FieldOfStudy (label changes by level) */}
+				{showFieldOfStudy && (
+					<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+						<span style={lbl}>{fieldLabel}</span>
+						<input style={{ ...iStyle, marginTop: 2 }} value={vals.FieldOfStudy} onChange={set("FieldOfStudy")} />
+					</label>
+				)}
+
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Start Year</span>
+					<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.StartYearText} onChange={set("StartYearText")} placeholder="e.g. 2018" />
+				</label>
+
+				{vals.StartYearText.trim() && (
+					<>
+						{!vals.IsPresent && (
+							<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+								<span style={lbl}>End Year</span>
+								<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.EndYearText} onChange={set("EndYearText")} placeholder="e.g. 2022" />
+							</label>
+						)}
+						<label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							<input
+								type="checkbox"
+								checked={!!vals.IsPresent}
+								onChange={(e) => setVals((v) => ({ ...v, IsPresent: e.target.checked, EndYearText: e.target.checked ? "" : v.EndYearText }))}
+							/>
+							Currently enrolled
+						</label>
+					</>
+				)}
+			</div>
+			<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+				<button style={btnG} onClick={onClose}>
+					Cancel
+				</button>
+				<button
+					style={btnP}
+					onClick={() => {
+						onSave(vals);
+						onClose();
+					}}
+				>
+					Save
+				</button>
+			</div>
+		</Modal>
+	);
+}
+
+// ── Timezone field: static text → dropdown on click ───────────────
+function TimezoneField({ value, timezones, onSave }) {
+	const [open, setOpen] = useState(false);
+	const [draft, setDraft] = useState(value || "");
+	const ref = useRef(null);
+
+	useEffect(() => {
+		setDraft(value || "");
+	}, [value]);
+
+	// Close on outside click
+	useEffect(() => {
+		if (!open) return;
+		const h = (e) => {
+			if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+		};
+		document.addEventListener("mousedown", h);
+		return () => document.removeEventListener("mousedown", h);
+	}, [open]);
+
+	const currentTz = timezones.find((t) => t.TimezoneID === value);
+
+	if (!open) {
+		return (
+			<span
+				onClick={() => setOpen(true)}
+				title="Click to change timezone"
+				style={{ cursor: "pointer", color: currentTz ? "var(--color-text)" : "var(--color-text-faint)", fontStyle: currentTz ? "normal" : "italic" }}
+			>
+				{currentTz ? `${currentTz.Name} (GMT${currentTz.GMTDifference})` : "(click to set)"}
+				{currentTz && <TimezoneTime gmt={currentTz.GMTDifference} />}
+			</span>
+		);
+	}
+
+	return (
+		<span ref={ref}>
+			<select
+				autoFocus
+				style={{ ...iStyle, width: "auto" }}
+				value={value || ""}
+				onChange={(e) => {
+					const v = e.target.value ? Number(e.target.value) : null;
+					onSave(v);
+					setOpen(false);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Escape") setOpen(false);
+				}}
+				onBlur={() => setOpen(false)}
+			>
+				<option value="">— none —</option>
+				{timezones.map((t) => (
+					<option key={t.TimezoneID} value={t.TimezoneID}>
+						{t.Name} (GMT{t.GMTDifference})
+					</option>
+				))}
+			</select>
+		</span>
+	);
+}
+
+// ── Platform dropdown with Add New ────────────────────────────────
+function PlatformSelect({ platforms, value, onChange, onAddNew }) {
+	const [addingNew, setAddingNew] = useState(false);
+	const [newName, setNewName] = useState("");
+
+	const handleSelect = (e) => {
+		const v = e.target.value;
+		if (v === "__new__") {
+			setAddingNew(true);
+			return;
+		}
+		onChange(v ? Number(v) : null);
+	};
+
+	const commit = async () => {
+		const name = newName.trim();
+		if (!name) {
+			setAddingNew(false);
+			return;
+		}
+		const id = await onAddNew(name);
+		onChange(id);
+		setNewName("");
+		setAddingNew(false);
+	};
+
+	if (addingNew)
+		return (
+			<div style={{ display: "flex", gap: 6 }}>
+				<input
+					autoFocus
+					value={newName}
+					onChange={(e) => setNewName(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") commit();
+						if (e.key === "Escape") {
+							setAddingNew(false);
+							setNewName("");
+						}
+					}}
+					placeholder="Platform name"
+					style={{ ...iStyle, flex: 1 }}
+				/>
+				<button onClick={commit} style={btnP}>
+					Add
+				</button>
+				<button
+					onClick={() => {
+						setAddingNew(false);
+						setNewName("");
+					}}
+					style={btnG}
+				>
+					✕
+				</button>
+			</div>
+		);
+
+	return (
+		<select style={{ ...iStyle, width: "auto", minWidth: 120 }} value={value || ""} onChange={handleSelect}>
+			<option value="">— platform —</option>
+			{platforms.map((p) => (
+				<option key={p.PlatformID} value={p.PlatformID}>
+					{p.PlatformName}
+				</option>
+			))}
+			<option value="__new__">+ Add new…</option>
+		</select>
 	);
 }
 
@@ -177,11 +562,19 @@ export default function PersonDetail({ personId, onDeleted }) {
 	const [specTree, setSpecTree] = useState([]);
 	const [innerTab, setInnerTab] = useState("Details");
 	const [adding, setAdding] = useState(null);
-	const [editing, setEditing] = useState(null);
+	const [editingId, setEditingId] = useState(null);
 	const [quickAdd, setQuickAdd] = useState(false);
-	// Tag editing state (for inline tag editor in primary group)
-	const [editingTags, setEditingTags] = useState(false);
-	const [tagDraft, setTagDraft] = useState([]);
+
+	// Socials add state
+	const [socialPlatformId, setSocialPlatformId] = useState(null);
+	const [socialHandle, setSocialHandle] = useState("");
+
+	// Settings
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [settingsPanel, setSettingsPanel] = useState(null);
+	const [deleteInput, setDeleteInput] = useState("");
+	const [headerDraft, setHeaderDraft] = useState({});
+	const settingsRef = useRef(null);
 
 	const reload = useCallback(async () => {
 		const [d, sp] = await Promise.all([personFull(personId), api.specificsForPerson(personId)]);
@@ -189,9 +582,8 @@ export default function PersonDetail({ personId, onDeleted }) {
 		setSpecifics(sp);
 	}, [personId]);
 
-	const reloadSpec = useCallback(() => {
-		api.specificsForPerson(personId).then(setSpecifics);
-	}, [personId]);
+	const reloadSpec = useCallback(() => api.specificsForPerson(personId).then(setSpecifics), [personId]);
+	const refreshLookups = () => lookupAll().then(setLookups);
 
 	useEffect(() => {
 		reload();
@@ -199,7 +591,7 @@ export default function PersonDetail({ personId, onDeleted }) {
 		api.specificsTree().then(setSpecTree);
 	}, [reload]);
 
-	// Ctrl+N — QuickAdd, only while PersonDetail is mounted
+	// Ctrl+N
 	useEffect(() => {
 		const h = (e) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === "n") {
@@ -208,314 +600,154 @@ export default function PersonDetail({ personId, onDeleted }) {
 			}
 			if (e.key === "Escape") {
 				setQuickAdd(false);
+				setSettingsOpen(false);
+				setSettingsPanel(null);
 			}
 		};
 		window.addEventListener("keydown", h);
 		return () => window.removeEventListener("keydown", h);
 	}, []);
 
-	if (!data || !lookups) return <div style={{ color: "var(--color-text-muted)", padding: 20 }}>Loading…</div>;
+	// Settings dropdown: close on outside click
+	useEffect(() => {
+		const h = (e) => {
+			if (settingsRef.current && !settingsRef.current.contains(e.target)) setSettingsOpen(false);
+		};
+		document.addEventListener("mousedown", h);
+		return () => document.removeEventListener("mousedown", h);
+	}, []);
+
+	if (!data || !lookups) return <div style={{ padding: 20, color: "var(--color-text-muted)" }}>Loading…</div>;
 
 	const { person, pronouns, tags, socialAccounts, eduHistory, orgHistory, notes, quotes, wordMouths, media } = data;
 
-	// ── Inline save helpers for primary group ─────────────────────
-	const savePrimaryField = async (field, value) => {
+	// ── Primary field saves ───────────────────────────────────────
+	const saveField = async (field, value) => {
 		await personUpdate(personId, { ...person, [field]: value || null });
 		reload();
 	};
-
-	// Save pronouns inline (toggle)
-	const savePronoun = async (ids) => {
-		await personSetPronouns(personId, ids);
-		reload();
-	};
-
-	// Save tags inline
 	const saveTagsInline = async (tagNames) => {
-		// find-or-create each tag name, get IDs
 		const ids = await Promise.all(tagNames.map((n) => api.lookupFindOrCreateTag(n)));
-		await personSetTags(personId, ids);
-		setEditingTags(false);
+		await api.personSetTags(personId, ids);
 		reload();
 	};
 
-	// Save category inline
-	const saveCategoryInline = async (catId) => {
-		await personUpdate(personId, { ...person, CategoryID: catId ? Number(catId) : null });
+	// ── Social: add new platform to DB ───────────────────────────
+	const addNewPlatform = async (name) => {
+		// Insert a new platform with no URL template — basic fallback
+		const db = await api.lookupAll();
+		// Use IPC to insert (reuse addCategory pattern)
+		// We'll do it via a direct preload call
+		const newPlatId = await window.electronAPI.lookupAddSocialPlatform(name);
+		refreshLookups();
+		return newPlatId;
+	};
+
+	// ── Social chip: edit handle ──────────────────────────────────
+	const handleSocialEdit = async (socialId, newHandle) => {
+		await socialUpdate(socialId, newHandle);
 		reload();
 	};
 
+	// ── Settings ─────────────────────────────────────────────────
+	const openEditHeader = () => {
+		setHeaderDraft({ FullName: person.FullName || "", Nickname: person.Nickname || "", CategoryID: person.CategoryID || null, pronounIds: pronouns.map((p) => p.PronounsID) });
+		setSettingsPanel("editHeader");
+		setSettingsOpen(false);
+	};
+	const saveHeader = async () => {
+		await personUpdate(personId, { ...person, FullName: headerDraft.FullName || person.FullName, Nickname: headerDraft.Nickname || null, CategoryID: headerDraft.CategoryID || null });
+		await api.personSetPronouns(personId, headerDraft.pronounIds || []);
+		await api.lookupPrunePronouns();
+		await api.lookupPruneCategories();
+		setSettingsPanel(null);
+		reload();
+		refreshLookups();
+	};
 	const handleDelete = async () => {
-		if (!confirm(`Delete ${person.FullName}? This cannot be undone.`)) return;
+		if (deleteInput.trim() !== person.FullName) return;
 		await personDelete(personId);
 		onDeleted();
 	};
 
 	const isAdding = (k) => adding === k;
-	const isEditing = (t, id) => editing?.type === t && editing?.id === id;
-	const stopAdding = () => setAdding(null);
-	const stopEditing = () => setEditing(null);
-
+	const isEditing = (t, id) => editingId?.type === t && editingId?.id === id;
+	const stopAdding = () => {
+		setAdding(null);
+		setSocialPlatformId(null);
+		setSocialHandle("");
+	};
+	const stopEditing = () => setEditingId(null);
 	const allTagNames = lookups.tags.map((t) => t.TagName);
 	const sayerOpts = lookups.persons.filter((p) => p.PersonID !== personId);
 
 	// ── DETAILS TAB ───────────────────────────────────────────────
+	// ORDER: Primary → Specifics → Organization → Education → Socials
 	const renderDetails = () => (
 		<>
-			{/* ── PRIMARY GROUP — inline editable ── */}
+			{/* ── PRIMARY GROUP ── */}
 			<div style={{ marginBottom: 16 }}>
-				{/* Category */}
-				<div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90 }}>Category</span>
-					<select style={{ ...iStyle, width: "auto" }} value={person.CategoryID || ""} onChange={(e) => saveCategoryInline(e.target.value)}>
-						<option value="">— none —</option>
-						{lookups.categories.map((c) => (
-							<option key={c.CategoryID} value={c.CategoryID}>
-								{c.CategoryName}
-							</option>
-						))}
-					</select>
-				</div>
-
-				{/* Full Name - (Nickname) */}
-				<InlineField label="Full Name" value={person.FullName} onSave={(v) => savePrimaryField("FullName", v || person.FullName)} />
-				<InlineField label="Nickname" value={person.Nickname} onSave={(v) => savePrimaryField("Nickname", v)} placeholder="(none)" />
-
-				{/* Pronouns — multi-select checkboxes inline */}
-				<div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5 }}>
-					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 2 }}>Pronouns</span>
-					<div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6 }}>
-						{lookups.pronouns.map((p) => (
-							<label key={p.PronounsID} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: "var(--font-size-sm)" }}>
-								<input
-									type="checkbox"
-									checked={pronouns.some((pr) => pr.PronounsID === p.PronounsID)}
-									onChange={async (e) => {
-										const current = pronouns.map((pr) => pr.PronounsID);
-										const next = e.target.checked ? [...current, p.PronounsID] : current.filter((id) => id !== p.PronounsID);
-										await savePronoun(next);
-									}}
-								/>
-								{p.Pronouns}
-							</label>
-						))}
-					</div>
-				</div>
-
-				{/* Birthdate + age + days */}
+				{/* Birthdate */}
 				<div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 5 }}>
 					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90 }}>Birthdate</span>
-					<BirthdateField personId={personId} value={person.Birthdate} onSave={(v) => savePrimaryField("Birthdate", v)} />
+					<BirthdateField value={person.Birthdate} onSave={(v) => saveField("Birthdate", v)} />
 				</div>
 
-				{/* Timezone + current time */}
+				{/* Timezone — static text → dropdown on click */}
 				<div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 5 }}>
 					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90 }}>Timezone</span>
-					<select
-						style={{ ...iStyle, width: "auto" }}
-						value={person.TimezoneID || ""}
-						onChange={async (e) => {
-							await personUpdate(personId, { ...person, TimezoneID: e.target.value ? Number(e.target.value) : null });
-							reload();
-						}}
-					>
-						<option value="">— none —</option>
-						{lookups.timezones.map((t) => (
-							<option key={t.TimezoneID} value={t.TimezoneID}>
-								{t.Name} (GMT{t.GMTDifference})
-							</option>
-						))}
-					</select>
-					{person.TimezoneID && <TimezoneTime gmt={lookups.timezones.find((t) => t.TimezoneID === person.TimezoneID)?.GMTDifference} />}
+					<TimezoneField value={person.TimezoneID} timezones={lookups.timezones} onSave={(v) => saveField("TimezoneID", v)} />
 				</div>
 
-				{/* Impression Note */}
-				<InlineField label="Note" value={person.ImpressionNote} onSave={(v) => savePrimaryField("ImpressionNote", v)} textarea placeholder="(click to add note)" />
+				{/* Address */}
+				<InlineField label="Address" value={person.Address} onSave={(v) => saveField("Address", v)} placeholder="(click to add address)" />
 
-				{/* Tags — inline TagInput */}
+				{/* Impression Note */}
+				<InlineField label="Note" value={person.ImpressionNote} onSave={(v) => saveField("ImpressionNote", v)} textarea placeholder="(click to add note)" />
+
+				{/* Tags */}
 				<div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5 }}>
 					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 6 }}>Tags</span>
 					<div style={{ flex: 1 }}>
-						<TagInput value={tags.map((t) => t.TagName)} allTags={allTagNames} onChange={saveTagsInline} />
+						<TagInput
+							value={tags.map((t) => t.TagName)}
+							allTags={allTagNames}
+							onChange={saveTagsInline}
+							// onTagClick={(tagName) => {
+							// 	const tag = lookups.tags.find((t) => t.TagName.toLowerCase() === tagName.toLowerCase());
+							// 	if (tag) window.electronAPI.lookupPersonsByTag(tag.TagID); // signals navigation intent
+							// 	window.dispatchEvent(new CustomEvent("lookup:openTag", { detail: { tagName } }));
+							// }}
+							// onTagClick={onOpenTag}
+						/>{" "}
 					</div>
 				</div>
 			</div>
 
 			<div style={divider} />
 
-			{/* ── SOCIALS ── */}
+			{/* ── SPECIFICS ── */}
 			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>Socials</div>
-					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("social")}>
-						+ Add
-					</button>
+				{/* Header: label + Add button in same row */}
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}></div>
+				<div style={{ marginBottom: 16 }}>
+					<SpecificsEditor specifics={specifics} tree={specTree} personId={personId} onReload={reloadSpec} showHeader />
 				</div>
-
-				{isAdding("social") && (
-					<InlineForm
-						fields={[
-							{ key: "PlatformName", label: "Platform (type freely)" },
-							{ key: "AccountTag", label: "Handle / URL" },
-						]}
-						onSave={async (v) => {
-							// Find platform by name or use first as fallback
-							const plat = lookups.platforms.find((p) => p.PlatformName.toLowerCase() === (v.PlatformName || "").toLowerCase());
-							const platId = plat ? plat.PlatformID : lookups.platforms[0]?.PlatformID || 1;
-							await socialCreate({ PersonID: personId, PlatformID: platId, AccountTag: v.AccountTag });
-							stopAdding();
-							reload();
-						}}
-						onCancel={stopAdding}
-					/>
-				)}
-
-				{/* Platform : handle1, handle2 format */}
-				{(() => {
-					const byPlat = {};
-					socialAccounts.forEach((s) => {
-						if (!byPlat[s.PlatformName]) byPlat[s.PlatformName] = [];
-						byPlat[s.PlatformName].push(s);
-					});
-					return Object.entries(byPlat).map(([plat, accs]) => (
-						<div key={plat} style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "flex-start" }}>
-							<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 2 }}>{plat}</span>
-							<div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 4 }}>
-								{accs.map((s) => (
-									<span
-										key={s.SocialID}
-										style={{
-											background: "var(--color-surface-3)",
-											padding: "1px 7px",
-											borderRadius: "var(--radius-sm)",
-											fontSize: "var(--font-size-sm)",
-											display: "inline-flex",
-											alignItems: "center",
-											gap: 4,
-										}}
-									>
-										{s.AccountTag}
-										<span
-											onClick={async () => {
-												await socialDelete(s.SocialID);
-												reload();
-											}}
-											style={{ cursor: "pointer", color: "var(--color-danger)", fontSize: 10 }}
-										>
-											×
-										</span>
-									</span>
-								))}
-							</div>
-						</div>
-					));
-				})()}
-				{socialAccounts.length === 0 && !isAdding("social") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
 			</div>
 
 			<div style={divider} />
 
-			{/* ── EDUCATION ── */}
+			{/* ── ORGANIZATION / EMPLOYMENT ── */}
 			<div style={{ marginBottom: 16 }}>
 				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>Education</div>
-					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("edu")}>
-						+ Add
-					</button>
-				</div>
-
-				{isAdding("edu") && (
-					<InlineForm
-						fields={[
-							{ key: "InstitutionText", label: "Institution" },
-							{ key: "CityText", label: "City" },
-							{ key: "StartYearText", label: "Year range (e.g. 2018–2022)" },
-							{ key: "Faculty", label: "Faculty (optional)" },
-							{ key: "Major", label: "Major (optional)" },
-						]}
-						onSave={async (v) => {
-							await eduCreate({ PersonID: personId, ...v });
-							stopAdding();
-							reload();
-						}}
-						onCancel={stopAdding}
-					/>
-				)}
-
-				{eduHistory.map((e) => {
-					const inst = e.InstitutionText || e.FieldOfStudy || "—";
-					const city = e.CityText || "";
-					const years = e.StartYearText || (e.StartYear ? `${e.StartYear}–${e.EndYear || "present"}` : "");
-					const faculty = e.Faculty || "";
-					const major = e.Major || "";
-					return (
-						<div key={e.EduHistID} style={{ marginBottom: 8 }}>
-							{isEditing("edu", e.EduHistID) ? (
-								<InlineForm
-									fields={[
-										{ key: "InstitutionText", label: "Institution" },
-										{ key: "CityText", label: "City" },
-										{ key: "StartYearText", label: "Year range" },
-										{ key: "Faculty", label: "Faculty" },
-										{ key: "Major", label: "Major" },
-									]}
-									initial={{
-										InstitutionText: e.InstitutionText || "",
-										CityText: e.CityText || "",
-										StartYearText: e.StartYearText || years,
-										Faculty: e.Faculty || "",
-										Major: e.Major || "",
-									}}
-									onSave={async (v) => {
-										await eduUpdate(e.EduHistID, v);
-										stopEditing();
-										reload();
-									}}
-									onCancel={stopEditing}
-								/>
-							) : (
-								<div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-									<div style={{ flex: 1 }}>
-										<div style={{ color: "var(--color-text)" }}>
-											<strong>{inst}</strong>
-											{city && <span style={{ color: "var(--color-text-muted)" }}>, {city}</span>}
-										</div>
-										{years && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{years}</div>}
-										{(faculty || major) && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{[faculty, major].filter(Boolean).join(", ")}</div>}
-									</div>
-									<button style={btnG} onClick={() => setEditing({ type: "edu", id: e.EduHistID })}>
-										✏
-									</button>
-									<button
-										style={btnD}
-										onClick={async () => {
-											await eduDelete(e.EduHistID);
-											reload();
-										}}
-									>
-										✕
-									</button>
-								</div>
-							)}
-						</div>
-					);
-				})}
-				{eduHistory.length === 0 && !isAdding("edu") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
-			</div>
-
-			<div style={divider} />
-
-			{/* ── ORGANIZATION ── */}
-			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>Organizations / Employment</div>
+					<div style={secTitle}>Organizations / Employment</div>
 					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("org")}>
 						+ Add
 					</button>
 				</div>
-
 				{isAdding("org") && (
-					<InlineForm
+					<PopupForm
+						title="Add Organization"
 						fields={[
 							{ key: "OrgNameText", label: "Organization" },
 							{ key: "Role", label: "Role / Division" },
@@ -523,21 +755,20 @@ export default function PersonDetail({ personId, onDeleted }) {
 						]}
 						onSave={async (v) => {
 							await orgCreate({ PersonID: personId, ...v });
-							stopAdding();
 							reload();
 						}}
-						onCancel={stopAdding}
+						onClose={stopAdding}
 					/>
 				)}
-
 				{orgHistory.map((o) => {
 					const org = o.OrgNameText || o.OrgName || "—";
 					const role = o.Role || o.Division || "";
 					const years = o.StartYearText || (o.StartYear ? `${o.StartYear}–${o.EndYear || "present"}` : "");
 					return (
-						<div key={o.OrgHistID} style={{ marginBottom: 8 }}>
+						<div key={o.OrgHistID}>
 							{isEditing("org", o.OrgHistID) ? (
-								<InlineForm
+								<PopupForm
+									title="Edit Organization"
 									fields={[
 										{ key: "OrgNameText", label: "Organization" },
 										{ key: "Role", label: "Role / Division" },
@@ -546,33 +777,26 @@ export default function PersonDetail({ personId, onDeleted }) {
 									initial={{ OrgNameText: o.OrgNameText || "", Role: o.Role || "", StartYearText: o.StartYearText || years }}
 									onSave={async (v) => {
 										await orgUpdate(o.OrgHistID, v);
-										stopEditing();
 										reload();
 									}}
-									onCancel={stopEditing}
+									onClose={stopEditing}
 								/>
 							) : (
-								<div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-									<div style={{ flex: 1 }}>
-										<span style={{ color: "var(--color-text)" }}>
-											<strong>{org}</strong>
+								<HoverRow
+									onEdit={() => setEditingId({ type: "org", id: o.OrgHistID })}
+									onDelete={async () => {
+										await orgDelete(o.OrgHistID);
+										reload();
+									}}
+								>
+									<div>
+										<span>
+											<strong style={{ color: "var(--color-text)" }}>{org}</strong>
+											{role && <span style={{ color: "var(--color-text-muted)" }}> ({role})</span>}
 										</span>
-										{role && <span style={{ color: "var(--color-text-muted)" }}> ({role})</span>}
 										{years && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{years}</div>}
 									</div>
-									<button style={btnG} onClick={() => setEditing({ type: "org", id: o.OrgHistID })}>
-										✏
-									</button>
-									<button
-										style={btnD}
-										onClick={async () => {
-											await orgDelete(o.OrgHistID);
-											reload();
-										}}
-									>
-										✕
-									</button>
-								</div>
+								</HoverRow>
 							)}
 						</div>
 					);
@@ -582,10 +806,187 @@ export default function PersonDetail({ personId, onDeleted }) {
 
 			<div style={divider} />
 
-			{/* ── SPECIFICS ── */}
+			{/* ── EDUCATION ── */}
 			<div style={{ marginBottom: 16 }}>
-				<div style={sectionTitle}>Specifics</div>
-				<SpecificsEditor specifics={specifics} tree={specTree} personId={personId} onReload={reloadSpec} />
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+					<div style={secTitle}>Education</div>
+					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("edu")}>
+						+ Add
+					</button>
+				</div>
+				{isAdding("edu") && (
+					<EduPopup
+						title="Add Education"
+						onSave={async (v) => {
+							await eduCreate({
+								PersonID: personId,
+								InstitutionText: v.InstitutionText,
+								EduLevelText: v.EduLevelText,
+								Faculty: v.Faculty,
+								FieldOfStudy: v.FieldOfStudy, // ← was Major
+								StartYearText: v.StartYearText,
+								EndYearText: v.EndYearText,
+								IsPresent: v.IsPresent,
+							});
+							reload();
+						}}
+						onClose={stopAdding}
+					/>
+				)}
+				{eduHistory.map((e) => {
+					const inst = e.InstitutionText || e.FieldOfStudy || "—";
+					const level = e.EduLevelText || "";
+					const startYr = e.StartYearText || (e.StartYear ? String(e.StartYear) : "");
+					const endYr = e.IsPresent ? "present" : e.EndYearText || (e.EndYear ? String(e.EndYear) : "");
+					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
+					// FieldOfStudy replaces Major+SubjectFocus; Faculty stays
+					const extra = [e.Faculty, e.FieldOfStudy].filter(Boolean).join(" · ");
+					return (
+						<div key={e.EduHistID}>
+							{isEditing("edu", e.EduHistID) ? (
+								<EduPopup
+									title="Edit Education"
+									initial={{
+										InstitutionText: e.InstitutionText || "",
+										EduLevelText: e.EduLevelText || "",
+										Faculty: e.Faculty || "",
+										FieldOfStudy: e.FieldOfStudy || e.Major || "", // migrate old Major data
+										StartYearText: e.StartYearText || startYr,
+										EndYearText: e.EndYearText || "",
+										IsPresent: !!e.IsPresent,
+									}}
+									onSave={async (v) => {
+										await eduUpdate(e.EduHistID, v);
+										reload();
+									}}
+									onClose={stopEditing}
+								/>
+							) : (
+								<HoverRow
+									onEdit={() => setEditingId({ type: "edu", id: e.EduHistID })}
+									onDelete={async () => {
+										await eduDelete(e.EduHistID);
+										reload();
+									}}
+								>
+									<div>
+										<span>
+											<strong style={{ color: "var(--color-text)" }}>{inst}</strong>
+										</span>
+										{level && (
+											<span
+												style={{
+													marginLeft: 6,
+													fontSize: "var(--font-size-xs)",
+													background: "var(--color-surface-3)",
+													padding: "1px 5px",
+													borderRadius: "var(--radius-sm)",
+													color: "var(--color-text-muted)",
+												}}
+											>
+												{level}
+											</span>
+										)}
+										{years && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{years}</div>}
+										{extra && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{extra}</div>}
+									</div>
+								</HoverRow>
+							)}
+						</div>
+					);
+				})}
+				{eduHistory.length === 0 && !isAdding("edu") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
+			</div>
+
+			<div style={divider} />
+
+			{/* ── SOCIALS ── */}
+			<div style={{ marginBottom: 16 }}>
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+					<div style={secTitle}>Socials</div>
+					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("social")}>
+						+ Add
+					</button>
+				</div>
+
+				{/* Add social: platform dropdown + handle input inline */}
+				{isAdding("social") && (
+					<div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 10, flexWrap: "wrap" }}>
+						<div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							<span style={lbl}>Platform</span>
+							<PlatformSelect
+								platforms={lookups.platforms}
+								value={socialPlatformId}
+								onChange={setSocialPlatformId}
+								onAddNew={async (name) => {
+									const id = await window.electronAPI.lookupAddSocialPlatform(name);
+									refreshLookups();
+									return id;
+								}}
+							/>
+						</div>
+						<div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 120 }}>
+							<span style={lbl}>Handle (without @)</span>
+							<input
+								style={iStyle}
+								value={socialHandle}
+								onChange={(e) => setSocialHandle(e.target.value)}
+								placeholder="personguy2000"
+								onKeyDown={async (e) => {
+									if (e.key === "Enter" && socialPlatformId && socialHandle.trim()) {
+										await socialCreate({ PersonID: personId, PlatformID: socialPlatformId, AccountTag: socialHandle.trim() });
+										stopAdding();
+										reload();
+									}
+									if (e.key === "Escape") stopAdding();
+								}}
+							/>
+						</div>
+						<div style={{ display: "flex", gap: 6 }}>
+							<button
+								style={btnP}
+								onClick={async () => {
+									if (!socialPlatformId || !socialHandle.trim()) return;
+									await socialCreate({ PersonID: personId, PlatformID: socialPlatformId, AccountTag: socialHandle.trim() });
+									stopAdding();
+									reload();
+								}}
+							>
+								Add
+							</button>
+							<button style={btnG} onClick={stopAdding}>
+								Cancel
+							</button>
+						</div>
+					</div>
+				)}
+
+				{/* Social chips grouped by platform */}
+				{(() => {
+					const byPlat = {};
+					socialAccounts.forEach((s) => {
+						if (!byPlat[s.PlatformName]) byPlat[s.PlatformName] = [];
+						byPlat[s.PlatformName].push(s);
+					});
+					return Object.entries(byPlat).map(([plat, accs]) => (
+						<SocialRow
+							key={plat}
+							plat={plat}
+							platformId={accs[0]?.PlatformID}
+							accs={accs}
+							onEdit={handleSocialEdit}
+							onDelete={async (id) => {
+								await socialDelete(id);
+								reload();
+							}}
+							onAdd={async (platId, handle) => {
+								await socialCreate({ PersonID: personId, PlatformID: platId, AccountTag: handle });
+								reload();
+							}}
+						/>
+					));
+				})()}
+				{socialAccounts.length === 0 && !isAdding("social") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
 			</div>
 		</>
 	);
@@ -596,60 +997,55 @@ export default function PersonDetail({ personId, onDeleted }) {
 			{/* QUOTES */}
 			<div style={{ marginBottom: 16 }}>
 				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>Quotes</div>
+					<div style={secTitle}>Quotes</div>
 					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("quote")}>
 						+ Add
 					</button>
 				</div>
 				{isAdding("quote") && (
-					<InlineForm
+					<PopupForm
+						title="Add Quote"
 						fields={[
 							{ key: "Quote", label: "Quote", textarea: true },
-							{ key: "Date", label: "Date", type: "date" },
+							{ key: "Date", label: "Date", inputType: "date" },
 						]}
+						initial={{ Date: today() }} // default to today
 						onSave={async (v) => {
 							await quoteCreate({ PersonID: personId, Quote: v.Quote, Date: v.Date || null });
-							stopAdding();
 							reload();
 						}}
-						onCancel={stopAdding}
+						onClose={stopAdding}
 					/>
 				)}
 				{quotes.map((q) => (
-					<div key={q.QuoteID} style={{ marginBottom: 6 }}>
+					<div key={q.QuoteID}>
 						{isEditing("quote", q.QuoteID) ? (
-							<InlineForm
+							<PopupForm
+								title="Edit Quote"
 								fields={[
 									{ key: "Quote", label: "Quote", textarea: true },
-									{ key: "Date", label: "Date", type: "date" },
+									{ key: "Date", label: "Date", inputType: "date" },
 								]}
-								initial={{ Quote: q.Quote, Date: q.Date }}
+								initial={{ Quote: q.Quote, Date: q.Date || today() }}
 								onSave={async (v) => {
 									await quoteUpdate(q.QuoteID, { Quote: v.Quote, Date: v.Date || null });
-									stopEditing();
 									reload();
 								}}
-								onCancel={stopEditing}
+								onClose={stopEditing}
 							/>
 						) : (
-							<div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-								<div style={{ flex: 1, color: "var(--color-text)" }}>
+							<HoverRow
+								onEdit={() => setEditingId({ type: "quote", id: q.QuoteID })}
+								onDelete={async () => {
+									await quoteDelete(q.QuoteID);
+									reload();
+								}}
+							>
+								<div>
 									<em>"{q.Quote}"</em>
 									{q.Date && <span style={{ color: "var(--color-text-faint)", marginLeft: 8, fontSize: "var(--font-size-xs)" }}>{q.Date}</span>}
 								</div>
-								<button style={btnG} onClick={() => setEditing({ type: "quote", id: q.QuoteID })}>
-									✏
-								</button>
-								<button
-									style={btnD}
-									onClick={async () => {
-										await quoteDelete(q.QuoteID);
-										reload();
-									}}
-								>
-									✕
-								</button>
-							</div>
+							</HoverRow>
 						)}
 					</div>
 				))}
@@ -661,52 +1057,48 @@ export default function PersonDetail({ personId, onDeleted }) {
 			{/* NOTES */}
 			<div style={{ marginBottom: 16 }}>
 				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>Notes</div>
+					<div style={secTitle}>Notes</div>
 					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("note")}>
 						+ Add
 					</button>
 				</div>
 				{isAdding("note") && (
-					<InlineForm
+					<PopupForm
+						title="Add Note"
 						fields={[{ key: "Note", label: "Note", textarea: true }]}
 						onSave={async (v) => {
 							await noteCreate({ PersonID: personId, Note: v.Note });
-							stopAdding();
 							reload();
 						}}
-						onCancel={stopAdding}
+						onClose={stopAdding}
 					/>
 				)}
 				{notes.map((n) => (
-					<div key={n.NotesID} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 4 }}>
+					<div key={n.NotesID}>
 						{isEditing("note", n.NotesID) ? (
-							<InlineForm
+							<PopupForm
+								title="Edit Note"
 								fields={[{ key: "Note", label: "Note", textarea: true }]}
 								initial={{ Note: n.Note }}
 								onSave={async (v) => {
 									await noteUpdate(n.NotesID, { Note: v.Note });
-									stopEditing();
 									reload();
 								}}
-								onCancel={stopEditing}
+								onClose={stopEditing}
 							/>
 						) : (
-							<>
-								<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginTop: 2 }}>•</span>
-								<span style={{ flex: 1 }}>{n.Note}</span>
-								<button style={btnG} onClick={() => setEditing({ type: "note", id: n.NotesID })}>
-									✏
-								</button>
-								<button
-									style={btnD}
-									onClick={async () => {
-										await noteDelete(n.NotesID);
-										reload();
-									}}
-								>
-									✕
-								</button>
-							</>
+							<HoverRow
+								onEdit={() => setEditingId({ type: "note", id: n.NotesID })}
+								onDelete={async () => {
+									await noteDelete(n.NotesID);
+									reload();
+								}}
+							>
+								<div style={{ display: "flex", gap: 6 }}>
+									<span style={{ color: "var(--color-text-muted)" }}>•</span>
+									<span>{n.Note}</span>
+								</div>
+							</HoverRow>
 						)}
 					</div>
 				))}
@@ -715,71 +1107,65 @@ export default function PersonDetail({ personId, onDeleted }) {
 
 			<div style={divider} />
 
-			{/* HE SAID SHE SAID (WordMouth) */}
+			{/* HE SAID / SHE SAID */}
 			<div style={{ marginBottom: 16 }}>
 				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={sectionTitle}>He Said / She Said</div>
+					<div style={secTitle}>He Said / She Said</div>
 					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("wm")}>
 						+ Add
 					</button>
 				</div>
 				{isAdding("wm") && (
-					<InlineForm
+					<PopupForm
+						title="Add He Said / She Said"
 						fields={[
 							{ key: "Quote", label: "Quote", textarea: true },
-							{ key: "Speaker", label: "Speaker (name, optional)" },
-							{ key: "Date", label: "Date", type: "date" },
+							{ key: "Speaker", label: "Speaker (optional name)" },
+							{ key: "Date", label: "Date", inputType: "date" },
 						]}
+						initial={{ Date: today() }} // default to today
 						onSave={async (v) => {
-							// Speaker is free-text: find matching person or leave SayerID null
 							const match = sayerOpts.find((p) => p.FullName.toLowerCase() === (v.Speaker || "").trim().toLowerCase());
 							await wmCreate({ PersonID: personId, SayerID: match?.PersonID || null, Quote: v.Quote, Date: v.Date || null });
-							stopAdding();
 							reload();
 						}}
-						onCancel={stopAdding}
+						onClose={stopAdding}
 					/>
 				)}
 				{wordMouths.map((w) => (
-					<div key={w.WordMouthID} style={{ marginBottom: 8 }}>
+					<div key={w.WordMouthID}>
 						{isEditing("wm", w.WordMouthID) ? (
-							<InlineForm
+							<PopupForm
+								title="Edit He Said / She Said"
 								fields={[
 									{ key: "Quote", label: "Quote", textarea: true },
-									{ key: "Speaker", label: "Speaker (name, optional)" },
-									{ key: "Date", label: "Date", type: "date" },
+									{ key: "Speaker", label: "Speaker" },
+									{ key: "Date", label: "Date", inputType: "date" },
 								]}
-								initial={{ Quote: w.Quote, Speaker: w.SayerName || "", Date: w.Date }}
+								initial={{ Quote: w.Quote, Speaker: w.SayerName || "", Date: w.Date || today() }}
 								onSave={async (v) => {
 									const match = sayerOpts.find((p) => p.FullName.toLowerCase() === (v.Speaker || "").trim().toLowerCase());
 									await wmUpdate(w.WordMouthID, { SayerID: match?.PersonID || null, Quote: v.Quote, Date: v.Date || null });
-									stopEditing();
 									reload();
 								}}
-								onCancel={stopEditing}
+								onClose={stopEditing}
 							/>
 						) : (
-							<div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-								<div style={{ flex: 1 }}>
-									<em style={{ color: "var(--color-text)" }}>"{w.Quote}"</em>
+							<HoverRow
+								onEdit={() => setEditingId({ type: "wm", id: w.WordMouthID })}
+								onDelete={async () => {
+									await wmDelete(w.WordMouthID);
+									reload();
+								}}
+							>
+								<div>
+									<em>"{w.Quote}"</em>
 									<div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginTop: 2 }}>
 										{w.SayerName || "anonymous"}
 										{w.Date && <span style={{ marginLeft: 8, color: "var(--color-text-faint)" }}>{w.Date}</span>}
 									</div>
 								</div>
-								<button style={btnG} onClick={() => setEditing({ type: "wm", id: w.WordMouthID })}>
-									✏
-								</button>
-								<button
-									style={btnD}
-									onClick={async () => {
-										await wmDelete(w.WordMouthID);
-										reload();
-									}}
-								>
-									✕
-								</button>
-							</div>
+							</HoverRow>
 						)}
 					</div>
 				))}
@@ -792,64 +1178,52 @@ export default function PersonDetail({ personId, onDeleted }) {
 	const renderMedia = () => (
 		<div>
 			<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-				<div style={sectionTitle}>Media</div>
+				<div style={secTitle}>Media</div>
 				<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("media")}>
 					+ Add
 				</button>
 			</div>
-
 			{isAdding("media") && (
-				<InlineForm
+				<PopupForm
+					title="Add Media File"
 					fields={[
 						{ key: "FilePath", label: "File Path" },
-						{ key: "Date", label: "Date", type: "date" },
+						{ key: "Date", label: "Date", inputType: "date" },
 					]}
 					onSave={async (v) => {
 						const mid = await mediaCreate({ FilePath: v.FilePath, Date: v.Date || null });
 						await mediaLink(personId, mid);
-						stopAdding();
 						reload();
 					}}
-					onCancel={stopAdding}
+					onClose={stopAdding}
 				/>
 			)}
-
-			{/* Simple grid */}
-			<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+			<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8 }}>
 				{media.map((m) => (
-					<div
+					<HoverRow
 						key={m.MediaID}
-						style={{
-							background: "var(--color-surface-2)",
-							border: "1px solid var(--color-border)",
-							borderRadius: "var(--radius-md)",
-							padding: 8,
-							position: "relative",
+						onDelete={async () => {
+							await mediaUnlink(personId, m.MediaID);
+							reload();
 						}}
 					>
-						<div style={{ fontSize: "var(--font-size-xs)", wordBreak: "break-all", color: "var(--color-text-muted)", marginBottom: 4 }}>{m.FilePath.split("/").pop() || m.FilePath}</div>
-						<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)" }}>{m.Date || ""}</div>
-						<div style={{ fontSize: 9, color: "var(--color-text-faint)", wordBreak: "break-all", marginTop: 2 }}>{m.FilePath}</div>
-						<button
-							onClick={async () => {
-								await mediaUnlink(personId, m.MediaID);
-								reload();
-							}}
-							style={{ position: "absolute", top: 4, right: 4, background: "transparent", border: "none", color: "var(--color-danger)", fontSize: 12, cursor: "pointer" }}
-						>
-							×
-						</button>
-					</div>
+						<div style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: 8 }}>
+							<div style={{ fontSize: "var(--font-size-xs)", wordBreak: "break-all", color: "var(--color-text-muted)", marginBottom: 4 }}>
+								{m.FilePath.split("/").pop() || m.FilePath}
+							</div>
+							{m.Date && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)" }}>{m.Date}</div>}
+							<div style={{ fontSize: 9, color: "var(--color-text-faint)", wordBreak: "break-all", marginTop: 2 }}>{m.FilePath}</div>
+						</div>
+					</HoverRow>
 				))}
 			</div>
 			{media.length === 0 && !isAdding("media") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No media files.</div>}
 		</div>
 	);
 
-	// ── RENDER ────────────────────────────────────────────────────
+	// ── MAIN RENDER ───────────────────────────────────────────────
 	return (
 		<div style={{ position: "relative", paddingBottom: 70 }}>
-			{/* QuickAdd popup */}
 			{quickAdd && lookups && (
 				<QuickAdd
 					person={person}
@@ -863,36 +1237,244 @@ export default function PersonDetail({ personId, onDeleted }) {
 				/>
 			)}
 
-			{/* Header row */}
-			<div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-				<div>
-					<h2 style={{ margin: 0, color: "var(--color-text)" }}>
-						{person.FullName}
-						{person.Nickname && <span style={{ color: "var(--color-text-muted)", fontWeight: "normal", marginLeft: 8, fontSize: 14 }}>({person.Nickname})</span>}
-					</h2>
-					{person.CategoryName && (
-						<span
+			{/* ── Modals ──────────────────────────────────────────── */}
+			{settingsPanel === "editHeader" && (
+				<Modal onClose={() => setSettingsPanel(null)} width={460}>
+					<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>Edit Header Info</div>
+					<div style={{ padding: 18, overflowY: "auto" }}>
+						<label style={{ display: "block", marginBottom: 12, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							Full Name *
+							<input style={{ ...iStyle, marginTop: 3 }} value={headerDraft.FullName || ""} onChange={(e) => setHeaderDraft((d) => ({ ...d, FullName: e.target.value }))} />
+						</label>
+						<label style={{ display: "block", marginBottom: 12, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							Nickname
+							<input style={{ ...iStyle, marginTop: 3 }} value={headerDraft.Nickname || ""} onChange={(e) => setHeaderDraft((d) => ({ ...d, Nickname: e.target.value }))} />
+						</label>
+						<label style={{ display: "block", marginBottom: 12, fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							Category
+							<div style={{ marginTop: 4 }}>
+								<CategoryInput
+									value={headerDraft.CategoryID}
+									categories={lookups.categories}
+									onChange={(id) => setHeaderDraft((d) => ({ ...d, CategoryID: id }))}
+									onNewCategory={async (name) => {
+										const id = await api.lookupFindOrCreateCategory(name);
+										refreshLookups();
+										return id;
+									}}
+								/>
+							</div>
+						</label>
+						<div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)", marginBottom: 6 }}>Pronouns</div>
+						<PronounInput
+							value={headerDraft.pronounIds || []}
+							allPronouns={lookups.pronouns}
+							onChange={(ids) => setHeaderDraft((d) => ({ ...d, pronounIds: ids }))}
+							onNewPronoun={async (text) => {
+								const id = await api.lookupFindOrCreatePronoun(text);
+								refreshLookups();
+								return id;
+							}}
+						/>
+					</div>
+					<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+						<button style={btnG} onClick={() => setSettingsPanel(null)}>
+							Cancel
+						</button>
+						<button style={btnP} onClick={saveHeader}>
+							Save
+						</button>
+					</div>
+				</Modal>
+			)}
+
+			{settingsPanel === "viewJson" && (
+				<Modal onClose={() => setSettingsPanel(null)} width={640}>
+					<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+						<span style={{ fontWeight: "bold", color: "var(--color-text)" }}>Raw JSON — {person.FullName}</span>
+						<button style={btnG} onClick={() => setSettingsPanel(null)}>
+							✕
+						</button>
+					</div>
+					<div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
+						<pre
 							style={{
-								fontSize: "var(--font-size-xs)",
-								padding: "1px 7px",
+								background: "var(--color-bg)",
+								color: "var(--color-text)",
+								padding: 12,
 								borderRadius: "var(--radius-sm)",
-								background: "var(--color-active)",
-								color: "#fff",
-								marginTop: 4,
-								display: "inline-block",
+								fontSize: 11,
+								overflowX: "auto",
+								whiteSpace: "pre-wrap",
+								wordBreak: "break-word",
+								margin: 0,
 							}}
 						>
-							{person.CategoryName}
-						</span>
+							{JSON.stringify(data, null, 2)}
+						</pre>
+					</div>
+				</Modal>
+			)}
+
+			{settingsPanel === "deleteConfirm" && (
+				<Modal
+					onClose={() => {
+						setSettingsPanel(null);
+						setDeleteInput("");
+					}}
+					width={380}
+				>
+					<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-danger)" }}>Delete Person</div>
+					<div style={{ padding: 18 }}>
+						<p style={{ color: "var(--color-text)", marginTop: 0 }}>
+							Permanently deletes <strong>{person.FullName}</strong> and all their data.
+						</p>
+						<p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+							Type <strong style={{ color: "var(--color-text)" }}>{person.FullName}</strong> to confirm:
+						</p>
+						<input
+							autoFocus
+							style={{ ...iStyle, marginTop: 4 }}
+							value={deleteInput}
+							onChange={(e) => setDeleteInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && deleteInput === person.FullName) handleDelete();
+							}}
+							placeholder={person.FullName}
+						/>
+					</div>
+					<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+						<button
+							style={btnG}
+							onClick={() => {
+								setSettingsPanel(null);
+								setDeleteInput("");
+							}}
+						>
+							Cancel
+						</button>
+						<button style={{ ...btnD, opacity: deleteInput === person.FullName ? 1 : 0.4 }} onClick={handleDelete}>
+							Delete
+						</button>
+					</div>
+				</Modal>
+			)}
+
+			{/* ── HEADER ─────────────────────────────────────────── */}
+			<div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+				<div>
+					<div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+						<h2 style={{ margin: 0, color: "var(--color-text)", fontSize: 20 }}>{person.FullName}</h2>
+						{person.Nickname && <span style={{ color: "var(--color-text-muted)", fontSize: 14 }}>({person.Nickname})</span>}
+						{person.CategoryName && (
+							<span
+								style={{
+									fontSize: "var(--font-size-xs)",
+									padding: "2px 8px",
+									borderRadius: "var(--radius-sm)",
+									background: "var(--color-active)",
+									color: "var(--color-text-on-primary)",
+									fontWeight: "bold",
+								}}
+							>
+								{person.CategoryName}
+							</span>
+						)}
+					</div>
+					{pronouns.length > 0 && (
+						<div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
+							{pronouns.map((p) => (
+								<span
+									key={p.PronounsID}
+									style={{
+										fontSize: "var(--font-size-xs)",
+										padding: "1px 6px",
+										borderRadius: "var(--radius-sm)",
+										background: "var(--color-surface-3)",
+										color: "var(--color-text-muted)",
+										border: "1px solid var(--color-border)",
+									}}
+								>
+									{p.Pronouns}
+								</span>
+							))}
+						</div>
 					)}
 				</div>
-				<button style={{ ...btnD, marginLeft: "auto" }} onClick={handleDelete}>
-					🗑 Delete
-				</button>
+
+				{/* ⚙ Settings */}
+				<div ref={settingsRef} style={{ position: "relative", flexShrink: 0 }}>
+					<button
+						onClick={() => setSettingsOpen((o) => !o)}
+						style={{
+							padding: "5px 10px",
+							background: "var(--color-surface-2)",
+							color: "var(--color-text)",
+							border: "1px solid var(--color-border)",
+							borderRadius: "var(--radius-sm)",
+							cursor: "pointer",
+							fontSize: 14,
+						}}
+					>
+						⚙
+					</button>
+					{settingsOpen && (
+						<div
+							style={{
+								position: "absolute",
+								right: 0,
+								top: "100%",
+								marginTop: 4,
+								background: "var(--color-surface)",
+								border: "1px solid var(--color-border)",
+								borderRadius: "var(--radius-md)",
+								width: 180,
+								zIndex: 200,
+								overflow: "hidden",
+							}}
+						>
+							{[
+								{ label: "✏ Edit Header Info", action: openEditHeader },
+								{
+									label: "{ } View JSON",
+									action: () => {
+										setSettingsPanel("viewJson");
+										setSettingsOpen(false);
+									},
+								},
+								{
+									label: "🗑 Delete Person",
+									action: () => {
+										setSettingsPanel("deleteConfirm");
+										setDeleteInput("");
+										setSettingsOpen(false);
+									},
+									danger: true,
+								},
+							].map((item) => (
+								<div
+									key={item.label}
+									onClick={item.action}
+									style={{
+										padding: "9px 14px",
+										cursor: "pointer",
+										fontSize: "var(--font-size-sm)",
+										color: item.danger ? "var(--color-danger)" : "var(--color-text)",
+										borderBottom: "1px solid var(--color-border)",
+									}}
+									onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+									onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+								>
+									{item.label}
+								</div>
+							))}
+						</div>
+					)}
+				</div>
 			</div>
 
 			{/* Inner tabs */}
-			<div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--color-border)", marginBottom: 16 }}>
+			<div style={{ display: "flex", borderBottom: "1px solid var(--color-border)", marginBottom: 16 }}>
 				{["Details", "Text", "Media"].map((t) => (
 					<button
 						key={t}
@@ -913,12 +1495,10 @@ export default function PersonDetail({ personId, onDeleted }) {
 				))}
 			</div>
 
-			{/* Tab content — display:none to preserve state */}
 			<div style={{ display: innerTab === "Details" ? "block" : "none" }}>{renderDetails()}</div>
 			<div style={{ display: innerTab === "Text" ? "block" : "none" }}>{renderText()}</div>
 			<div style={{ display: innerTab === "Media" ? "block" : "none" }}>{renderMedia()}</div>
 
-			{/* Floating Ctrl+N button */}
 			<button
 				onClick={() => setQuickAdd(true)}
 				title="Quick Add (Ctrl+N)"
@@ -948,7 +1528,6 @@ export default function PersonDetail({ personId, onDeleted }) {
 function BirthdateField({ value, onSave }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(value || "");
-
 	useEffect(() => {
 		setDraft(value || "");
 	}, [value]);
@@ -956,25 +1535,27 @@ function BirthdateField({ value, onSave }) {
 	let ageInfo = "";
 	if (value) {
 		const [y, m, d] = value.split("-").map(Number);
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		let age = today.getFullYear() - y;
-		const hadBday = today.getMonth() > m - 1 || (today.getMonth() === m - 1 && today.getDate() >= d);
+		const now = new Date();
+		now.setHours(0, 0, 0, 0);
+		let age = now.getFullYear() - y;
+		const hadBday = now.getMonth() > m - 1 || (now.getMonth() === m - 1 && now.getDate() >= d);
 		if (!hadBday) age--;
-		const next = new Date(today.getFullYear(), m - 1, d);
-		if (next < today) next.setFullYear(today.getFullYear() + 1);
-		const days = Math.round((next - today) / 86400000);
+		const next = new Date(now.getFullYear(), m - 1, d);
+		if (next < now) next.setFullYear(now.getFullYear() + 1);
+		const days = Math.round((next - now) / 86400000);
 		ageInfo = ` · ${age} y/o · ${days === 0 ? "🎂 today!" : `${days}d`}`;
 	}
 
+	const is = { padding: "4px 6px", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", background: "var(--color-surface-2)", color: "var(--color-text)" };
 	if (editing)
 		return (
 			<div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 				<input
 					type="date"
-					style={{ ...iStyle, width: "auto" }}
+					style={{ ...is, width: "auto" }}
 					value={draft}
 					onChange={(e) => setDraft(e.target.value)}
+					autoFocus
 					onKeyDown={(e) => {
 						if (e.key === "Enter") {
 							onSave(draft);
@@ -982,10 +1563,9 @@ function BirthdateField({ value, onSave }) {
 						}
 						if (e.key === "Escape") setEditing(false);
 					}}
-					autoFocus
 				/>
 				<button
-					style={btnP}
+					style={{ padding: "3px 8px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}
 					onClick={() => {
 						onSave(draft);
 						setEditing(false);
@@ -993,12 +1573,21 @@ function BirthdateField({ value, onSave }) {
 				>
 					Save
 				</button>
-				<button style={btnG} onClick={() => setEditing(false)}>
+				<button
+					style={{
+						padding: "3px 6px",
+						background: "transparent",
+						border: "1px solid var(--color-border)",
+						borderRadius: "var(--radius-sm)",
+						color: "var(--color-text-muted)",
+						cursor: "pointer",
+					}}
+					onClick={() => setEditing(false)}
+				>
 					Cancel
 				</button>
 			</div>
 		);
-
 	return (
 		<span onClick={() => setEditing(true)} style={{ cursor: "pointer", color: value ? "var(--color-text)" : "var(--color-text-faint)", fontStyle: value ? "normal" : "italic" }}>
 			{value || "(click to set)"}
@@ -1014,13 +1603,11 @@ function TimezoneTime({ gmt }) {
 		const update = () => {
 			const offset = parseFloat(gmt);
 			const utc = new Date(Date.now() + new Date().getTimezoneOffset() * 60000);
-			const local = new Date(utc.getTime() + offset * 3600000);
-			setTime(local.toTimeString().slice(0, 5));
+			setTime(new Date(utc.getTime() + offset * 3600000).toTimeString().slice(0, 5));
 		};
 		update();
 		const t = setInterval(update, 10000);
 		return () => clearInterval(t);
 	}, [gmt]);
-
-	return <span style={{ color: "var(--color-text-faint)", fontSize: "var(--font-size-sm)" }}>{time}</span>;
+	return <span style={{ marginLeft: 8, color: "var(--color-text-faint)", fontSize: "var(--font-size-sm)" }}>{time}</span>;
 }

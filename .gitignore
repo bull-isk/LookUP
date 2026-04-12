@@ -1,7 +1,6 @@
 node_modules
 renderer/node_modules
 scripts/
-.gitignore
 lookup-dev.db
 lookup-dev.db-shm
 lookup-dev.db-wal

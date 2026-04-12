@@ -16,4 +16,6 @@ module.exports = function registerPersonHandlers() {
   ipcMain.handle('person:byTag',           ()           => repo.getPeopleByTag());
   // Phase B
   ipcMain.handle('person:search',          (_, q)       => repo.searchPersons(q));
+
+  ipcMain.handle('person:deletePopulateTest', () => repo.deletePopulateTest());
 };

@@ -53,14 +53,21 @@ export const personFavorites       = (limit) => api.personFavorites(limit);
 export const personByTag           = ()      => api.personByTag();
 
 // Phase B — specifics
-export const personSearch        = (q)        => api.personSearch(q);
-export const lookupFindOrCreateTag = (n)      => api.lookupFindOrCreateTag(n);
-export const lookupTagsWithCounts  = ()       => api.lookupTagsWithCounts();
-export const lookupPersonsByTag    = (id)     => api.lookupPersonsByTag(id);
-export const specificsForPerson    = (pid)    => api.specificsForPerson(pid);
-export const specificsTree         = ()       => api.specificsTree();
-export const specificsAddValue     = (d)      => api.specificsAddValue(d);
-export const specificsUpdateValue  = (id, n)  => api.specificsUpdateValue(id, n);
-export const specificsDeleteValue  = (id)     => api.specificsDeleteValue(id);
-export const specificsFindOrCreateSub   = (name)       => api.specificsFindOrCreateSub(name);
-export const specificsFindOrCreatePoint = (sid, name)  => api.specificsFindOrCreatePoint(sid, name);
+export const personSearch               = (q)       => api.personSearch(q);
+export const lookupFindOrCreateTag      = (n)       => api.lookupFindOrCreateTag(n);
+export const lookupTagsWithCounts       = ()        => api.lookupTagsWithCounts();
+export const lookupPersonsByTag         = (id)      => api.lookupPersonsByTag(id);
+export const lookupFindOrCreatePronoun  = (t)       => api.lookupFindOrCreatePronoun(t);
+export const lookupPrunePronouns        = ()        => api.lookupPrunePronouns();
+export const lookupFindOrCreateCategory = (n, hex)  => api.lookupFindOrCreateCategory(n, hex);
+export const lookupPruneCategories      = ()        => api.lookupPruneCategories();
+export const specificsForPerson         = (pid)     => api.specificsForPerson(pid);
+export const specificsTree              = ()        => api.specificsTree();
+export const specificsAddValue          = (d)       => api.specificsAddValue(d);
+export const specificsUpdateValue       = (id, n)   => api.specificsUpdateValue(id, n);
+export const specificsDeleteValue       = (id)      => api.specificsDeleteValue(id);
+export const specificsFindOrCreateSub   = (name)    => api.specificsFindOrCreateSub(name);
+export const specificsFindOrCreatePoint = (sid,name)=> api.specificsFindOrCreatePoint(sid, name);
+
+export const socialUpdate               = (id, tag) => api.socialUpdate(id, tag);
+export const personDeletePopulateTest   = ()        => api.personDeletePopulateTest();

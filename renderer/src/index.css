@@ -26,7 +26,7 @@
   --color-text-on-primary: #ffffff;
 
   /* ── Overlay ── */
-  --overlay-bg: rgba(0, 0, 10, 0.65);
+  --overlay-bg: rgba(0, 0, 10, 0.85);
 
   /* ── Layout ── */
   --nav-width:     110px;

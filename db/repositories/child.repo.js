@@ -59,73 +59,83 @@ function deleteNote(id) {
 	if (n) touchLastUpdated(n.PersonID);
 }
 
-// ── EDUCATION — now fully free-text ──────────────────────────────
-// Old FK columns (InstID, EduLevelID, StartYear, EndYear, FieldOfStudy) are preserved
-// in the DB but no longer written by this function. New free-text columns are used.
+// ── EDUCATION ────────────────────────────────────────────────────
+// Fields used: PersonID, InstitutionText, FieldOfStudy (was Major),
+//              Faculty, EduLevelText, StartYearText, EndYearText, IsPresent
+// Removed: CityText, SubjectFocus, Major (merged into FieldOfStudy)
 function createEdu(data) {
-	// data: { PersonID, InstitutionText, CityText, Faculty, Major, StartYearText, EndYearText }
 	const id = getDb()
 		.prepare(
 			`
-    INSERT INTO EduHistory
-      (PersonID, InstID, EduLevelID,
-       InstitutionText, CityText, Faculty, Major, StartYearText, EndYearText)
-    VALUES
-      (@PersonID, 1, 1,
-       @InstitutionText, @CityText, @Faculty, @Major, @StartYearText, @EndYearText)
-  `,
+				INSERT INTO EduHistory
+				(PersonID,
+				InstitutionText, FieldOfStudy, Faculty,
+				EduLevelText,
+				StartYearText, EndYearText, IsPresent)
+				VALUES
+				(@PersonID,
+				@InstitutionText, @FieldOfStudy, @Faculty,
+				@EduLevelText,
+				@StartYearText, @EndYearText, @IsPresent)
+			`,
 		)
 		.run({
 			PersonID: data.PersonID,
 			InstitutionText: data.InstitutionText || "",
-			CityText: data.CityText || "",
+			FieldOfStudy: data.FieldOfStudy || "", // replaces Major
 			Faculty: data.Faculty || "",
-			Major: data.Major || "",
+			EduLevelText: data.EduLevelText || "",
 			StartYearText: data.StartYearText || "",
 			EndYearText: data.EndYearText || "",
+			IsPresent: data.IsPresent ? 1 : 0,
 		}).lastInsertRowid;
 	touchLastUpdated(data.PersonID);
 	return id;
 }
+
 function updateEdu(id, data) {
 	const e = getDb().prepare(`SELECT PersonID FROM EduHistory WHERE EduHistID=?`).get(id);
 	getDb()
 		.prepare(
 			`
-    UPDATE EduHistory
-    SET InstitutionText=@InstitutionText, CityText=@CityText,
-        Faculty=@Faculty, Major=@Major,
-        StartYearText=@StartYearText, EndYearText=@EndYearText
-    WHERE EduHistID=@id
-  `,
+				UPDATE EduHistory
+				SET InstitutionText=@InstitutionText,
+					FieldOfStudy=@FieldOfStudy,
+					Faculty=@Faculty,
+					EduLevelText=@EduLevelText,
+					StartYearText=@StartYearText,
+					EndYearText=@EndYearText,
+					IsPresent=@IsPresent
+				WHERE EduHistID=@id
+			`,
 		)
 		.run({
 			id,
 			InstitutionText: data.InstitutionText || "",
-			CityText: data.CityText || "",
+			FieldOfStudy: data.FieldOfStudy || "",
 			Faculty: data.Faculty || "",
-			Major: data.Major || "",
+			EduLevelText: data.EduLevelText || "",
 			StartYearText: data.StartYearText || "",
 			EndYearText: data.EndYearText || "",
+			IsPresent: data.IsPresent ? 1 : 0,
 		});
 	if (e) touchLastUpdated(e.PersonID);
 }
+
 function deleteEdu(id) {
 	const e = getDb().prepare(`SELECT PersonID FROM EduHistory WHERE EduHistID=?`).get(id);
 	getDb().prepare(`DELETE FROM EduHistory WHERE EduHistID=?`).run(id);
 	if (e) touchLastUpdated(e.PersonID);
 }
 
-// ── ORGANIZATION — now fully free-text ───────────────────────────
+// ── ORGANIZATION ──────────────────────────────────────────────────
+// OrgID is now nullable.
 function createOrg(data) {
-	// data: { PersonID, OrgNameText, Role, StartYearText, EndYearText }
 	const id = getDb()
 		.prepare(
 			`
-    INSERT INTO OrgHistory
-      (PersonID, OrgID, OrgNameText, Role, StartYearText, EndYearText)
-    VALUES
-      (@PersonID, 1, @OrgNameText, @Role, @StartYearText, @EndYearText)
+    INSERT INTO OrgHistory (PersonID, OrgNameText, Role, StartYearText, EndYearText)
+    VALUES (@PersonID, @OrgNameText, @Role, @StartYearText, @EndYearText)
   `,
 		)
 		.run({
@@ -170,6 +180,12 @@ function createSocial(data) {
 	touchLastUpdated(data.PersonID);
 	return id;
 }
+function updateSocial(id, accountTag) {
+	const db = getDb();
+	const s = db.prepare(`SELECT PersonID FROM SocialAccount WHERE SocialID=?`).get(id);
+	db.prepare(`UPDATE SocialAccount SET AccountTag=? WHERE SocialID=?`).run(accountTag, id);
+	if (s) touchLastUpdated(s.PersonID);
+}
 function deleteSocial(id) {
 	const s = getDb().prepare(`SELECT PersonID FROM SocialAccount WHERE SocialID=?`).get(id);
 	getDb().prepare(`DELETE FROM SocialAccount WHERE SocialID=?`).run(id);
@@ -210,6 +226,7 @@ module.exports = {
 	updateOrg,
 	deleteOrg,
 	createSocial,
+	updateSocial,
 	deleteSocial,
 	createMedia,
 	linkMedia,

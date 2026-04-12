@@ -77,13 +77,26 @@ function getFullPerson(id) {
 			.all(id),
 		// In person.repo.js — replace the eduHistory and orgHistory queries inside getFullPerson():
 
+		// In getFullPerson(), replace the eduHistory query:
+		socialAccounts: db
+			.prepare(
+				`
+          SELECT sa.SocialID, sa.AccountTag, sp.PlatformName, sp.URLTemplate
+          FROM SocialAccount sa
+          JOIN SocialPlatform sp ON sa.PlatformID = sp.PlatformID
+          WHERE sa.PersonID = ?
+        `,
+			)
+			.all(id),
+
 		eduHistory: db
 			.prepare(
 				`
           SELECT EduHistID,
                 InstitutionText, CityText, Faculty, Major,
-                StartYearText, EndYearText,
-                FieldOfStudy, StartYear, EndYear  -- legacy fields kept for data that predates migration
+                EduLevelText, SubjectFocus,
+                StartYearText, EndYearText, IsPresent,
+                FieldOfStudy, StartYear, EndYear
           FROM EduHistory
           WHERE PersonID = ?
         `,
@@ -336,6 +349,19 @@ function searchPersons(query) {
 		.all(q, q, q, query.trim());
 }
 
+// ADD before module.exports in person.repo.js:
+
+// Deletes all persons in the "Populate Test" category.
+// Called once during app init / on demand. CASCADE handles child rows.
+function deletePopulateTest() {
+	const db = getDb();
+	const cat = db.prepare(`SELECT CategoryID FROM Category WHERE lower(CategoryName) = lower('Populate Test')`).get();
+	if (!cat) return { changes: 0 };
+	return db.prepare(`DELETE FROM Person WHERE CategoryID = ?`).run(cat.CategoryID);
+}
+
+// Also add `deletePopulateTest` to module.exports.
+
 module.exports = {
 	touchLastUpdated,
 	getAllPersons,
@@ -350,4 +376,5 @@ module.exports = {
 	getFavorites,
 	getPeopleByTag,
 	searchPersons,
+	deletePopulateTest,
 };

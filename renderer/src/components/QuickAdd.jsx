@@ -11,6 +11,8 @@ const SECTIONS = {
 	Media: ["Media File"],
 };
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 export default function QuickAdd({ person, lookups, specificsTree, onSaved, onClose }) {
 	const [page, setPage] = useState("Details");
 	const [section, setSection] = useState(SECTIONS["Details"][0]);
@@ -88,7 +90,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</label>
 					<label style={lbl}>
 						Date
-						<input type="date" style={inp} onChange={set("Date")} />
+						<input type="date" style={inp} value={form.Date || today()} onChange={set("Date")} />
 					</label>
 				</>
 			);
@@ -112,7 +114,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</label>
 					<label style={lbl}>
 						Date
-						<input type="date" style={inp} onChange={set("Date")} />
+						<input type="date" style={inp} value={form.Date || today()} onChange={set("Date")} />
 					</label>
 				</>
 			);
@@ -266,13 +268,14 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 			<div
 				onClick={(e) => e.stopPropagation()}
 				style={{
-					background: "var(--bg-primary)",
-					border: "1px solid var(--border-primary)",
+					background: "var(--color-surface)",
+					border: "1px solid var(--color-border-2)",
+					borderRadius: "var(--radius-lg)",
+					boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
 					width: 460,
 					maxHeight: "80vh",
 					display: "flex",
 					flexDirection: "column",
-					borderRadius: "var(--radius-md)",
 				}}
 			>
 				{/* Header */}

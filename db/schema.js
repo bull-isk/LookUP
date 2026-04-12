@@ -171,6 +171,9 @@ function initSchema() {
 	// ── SEED ─────────────────────────────────────────────────────
 	seedLookups(db);
 
+	db.exec(`DELETE FROM Tags WHERE TagID NOT IN (SELECT DISTINCT TagID FROM PersonTag)`);
+	console.log("[DB] Startup: pruned orphan tags");
+
 	console.log("[DB] Schema ready.");
 }
 
@@ -252,6 +255,177 @@ function runMigrations(db) {
 		db.exec(`ALTER TABLE OrgHistory ADD COLUMN EndYearText   TEXT`);
 		console.log("[DB] Migration: added free-text fields to OrgHistory");
 	}
+
+	const requiredCats = [
+		{ CategoryName: "Friend", HexCode: "#0472ef" },
+		{ CategoryName: "Family", HexCode: "#e61b73" },
+		{ CategoryName: "Colleague", HexCode: "#f22314" },
+		{ CategoryName: "Online Friend", HexCode: "#f2c514" },
+	];
+	const insertCat = db.prepare(`INSERT INTO Category (CategoryName, SVGPath, HexCode) VALUES (?, '', ?)`);
+	requiredCats.forEach(({ CategoryName, HexCode }) => {
+		const exists = db.prepare(`SELECT CategoryID FROM Category WHERE lower(CategoryName) = lower(?)`).get(CategoryName);
+		if (!exists) insertCat.run(CategoryName, HexCode);
+	});
+
+	// ── Phase C migrations ────────────────────────────────────────────
+
+	// 1. Add URL template column to SocialPlatform
+	if (!hasColumn("SocialPlatform", "URLTemplate")) {
+		db.exec(`ALTER TABLE SocialPlatform ADD COLUMN URLTemplate TEXT`);
+		console.log("[DB] Migration: added SocialPlatform.URLTemplate");
+	}
+
+	// 2. Seed / update the 6 default platforms with URL templates.
+	//    Uses INSERT OR IGNORE so existing rows are preserved, then updates URL.
+	const defaultPlatforms = [
+		{ PlatformName: "WhatsApp", Logo: "", URLTemplate: "https://wa.me/{value}" },
+		{ PlatformName: "Instagram", Logo: "", URLTemplate: "https://www.instagram.com/{value}" },
+		{ PlatformName: "Twitter", Logo: "", URLTemplate: "https://twitter.com/{value}" },
+		{ PlatformName: "Facebook", Logo: "", URLTemplate: "https://facebook.com/{value}" },
+		{ PlatformName: "GitHub", Logo: "", URLTemplate: "https://github.com/{value}" },
+		{ PlatformName: "LinkedIn", Logo: "", URLTemplate: "https://www.linkedin.com/in/{value}" },
+	];
+	defaultPlatforms.forEach(({ PlatformName, Logo, URLTemplate }) => {
+		const existing = db.prepare(`SELECT PlatformID FROM SocialPlatform WHERE lower(PlatformName) = lower(?)`).get(PlatformName);
+		if (existing) {
+			db.prepare(`UPDATE SocialPlatform SET URLTemplate=? WHERE PlatformID=?`).run(URLTemplate, existing.PlatformID);
+		} else {
+			db.prepare(`INSERT INTO SocialPlatform (PlatformName, Logo, URLTemplate) VALUES (?,?,?)`).run(PlatformName, Logo, URLTemplate);
+		}
+	});
+
+	// 3. Seed new EduLevel values (the 5 required levels).
+	//    Wipe old levels and reseed only if the old set is present.
+	const oldLevels = db.prepare(`SELECT COUNT(*) as n FROM EduLevel WHERE LevelName IN ('High School','Bachelor''s','Master''s','Doctorate','Vocational','Associate')`).get();
+	if (oldLevels.n > 0) {
+		db.exec(`DELETE FROM EduHistory`); // FK-safe: cascade not needed, just wipe seeded test data
+		db.exec(`DELETE FROM EduLevel`);
+		const newLevels = ["Primary School", "Middle School", "High School", "College", "Other"];
+		const insLevel = db.prepare(`INSERT INTO EduLevel (LevelName) VALUES (?)`);
+		newLevels.forEach((l) => insLevel.run(l));
+		console.log("[DB] Migration: reseeded EduLevel");
+	}
+
+	// 4. Add new free-text columns to EduHistory for Phase C education rework.
+	if (!hasColumn("EduHistory", "EduLevelText")) {
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN EduLevelText  TEXT`); // "College", "High School", etc.
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN SubjectFocus  TEXT`); // High School only
+		db.exec(`ALTER TABLE EduHistory ADD COLUMN IsPresent     INTEGER DEFAULT 0`); // 1 = currently enrolled
+		console.log("[DB] Migration: added EduHistory.EduLevelText, SubjectFocus, IsPresent");
+	}
+
+	// 5. Delete all people in the "Populate Test" category.
+	const popTestCat = db.prepare(`SELECT CategoryID FROM Category WHERE lower(CategoryName) = lower('Populate Test')`).get();
+	if (popTestCat) {
+		const deleted = db.prepare(`DELETE FROM Person WHERE CategoryID = ?`).run(popTestCat.CategoryID);
+		if (deleted.changes > 0) {
+			console.log(`[DB] Migration: deleted ${deleted.changes} Populate Test people`);
+		}
+	}
+
+	// ADD inside runMigrations(), after all existing Phase C blocks:
+
+	// Phase C Fix — make EduHistory FK columns nullable so edu entries
+	// don't require valid InstID/EduLevelID (we use free-text fields instead).
+	// SQLite can't ALTER COLUMN, so we recreate the table only if needed.
+	const eduInfo = db.prepare(`PRAGMA table_info(EduHistory)`).all();
+	const instCol = eduInfo.find((c) => c.name === "InstID");
+	const levelCol = eduInfo.find((c) => c.name === "EduLevelID");
+	// Check if columns are NOT NULL (notnull=1 means NOT NULL)
+	if ((instCol && instCol.notnull === 1) || (levelCol && levelCol.notnull === 1)) {
+		console.log("[DB] Migration: relaxing EduHistory FK constraints...");
+		db.transaction(() => {
+			// Get existing columns
+			const cols = db
+				.prepare(`PRAGMA table_info(EduHistory)`)
+				.all()
+				.map((c) => c.name);
+			// Recreate without NOT NULL on InstID and EduLevelID
+			db.exec(`
+					CREATE TABLE IF NOT EXISTS EduHistory_new (
+						EduHistID      INTEGER PRIMARY KEY AUTOINCREMENT,
+						InstID         INTEGER REFERENCES AcademicInst(InstID) ON DELETE SET NULL,
+						PersonID       INTEGER NOT NULL REFERENCES Person(PersonID) ON DELETE CASCADE,
+						EduLevelID     INTEGER REFERENCES EduLevel(EduLevelID) ON DELETE SET NULL,
+						StartYear      INTEGER,
+						EndYear        INTEGER,
+						FieldOfStudy   TEXT,
+						InstitutionText TEXT,
+						CityText        TEXT,
+						Faculty         TEXT,
+						Major           TEXT,
+						StartYearText   TEXT,
+						EndYearText     TEXT,
+						EduLevelText    TEXT,
+						SubjectFocus    TEXT,
+						IsPresent       INTEGER DEFAULT 0
+					)
+					`);
+			// Copy existing data (only columns that exist in old table)
+			const safeColsAll = [
+				"EduHistID",
+				"PersonID",
+				"StartYear",
+				"EndYear",
+				"FieldOfStudy",
+				"InstitutionText",
+				"CityText",
+				"Faculty",
+				"Major",
+				"StartYearText",
+				"EndYearText",
+				"EduLevelText",
+				"SubjectFocus",
+				"IsPresent",
+			];
+			const safeCols = safeColsAll.filter((c) => cols.includes(c));
+			// Always include InstID and EduLevelID but coerce to NULL-safe copy
+			db.exec(`
+			INSERT INTO EduHistory_new (${safeCols.join(",")}, InstID, EduLevelID)
+			SELECT ${safeCols.join(",")}, NULL, NULL FROM EduHistory
+			`);
+			db.exec(`DROP TABLE EduHistory`);
+			db.exec(`ALTER TABLE EduHistory_new RENAME TO EduHistory`);
+		})();
+		console.log("[DB] Migration: EduHistory FK columns are now nullable");
+	}
+
+	// Same fix for OrgHistory — OrgID is NOT NULL with FK reference
+	const orgInfo = db.prepare(`PRAGMA table_info(OrgHistory)`).all();
+	const orgCol = orgInfo.find((c) => c.name === "OrgID");
+	if (orgCol && orgCol.notnull === 1) {
+		console.log("[DB] Migration: relaxing OrgHistory FK constraints...");
+		db.transaction(() => {
+			const cols = db
+				.prepare(`PRAGMA table_info(OrgHistory)`)
+				.all()
+				.map((c) => c.name);
+			db.exec(`
+					CREATE TABLE IF NOT EXISTS OrgHistory_new (
+						OrgHistID     INTEGER PRIMARY KEY AUTOINCREMENT,
+						OrgID         INTEGER REFERENCES Organization(OrgID) ON DELETE SET NULL,
+						PersonID      INTEGER NOT NULL REFERENCES Person(PersonID) ON DELETE CASCADE,
+						Division      TEXT,
+						StartYear     INTEGER,
+						EndYear       INTEGER,
+						OrgNameText   TEXT,
+						Role          TEXT,
+						StartYearText TEXT,
+						EndYearText   TEXT
+					)
+					`);
+			const safeColsAll = ["OrgHistID", "PersonID", "Division", "StartYear", "EndYear", "OrgNameText", "Role", "StartYearText", "EndYearText"];
+			const safeCols = safeColsAll.filter((c) => cols.includes(c));
+			db.exec(`
+					INSERT INTO OrgHistory_new (${safeCols.join(",")}, OrgID)
+					SELECT ${safeCols.join(",")}, NULL FROM OrgHistory
+					`);
+			db.exec(`DROP TABLE OrgHistory`);
+			db.exec(`ALTER TABLE OrgHistory_new RENAME TO OrgHistory`);
+		})();
+		console.log("[DB] Migration: OrgHistory FK columns are now nullable");
+	}
 }
 
 function seedLookups(db) {
@@ -292,8 +466,6 @@ function seedLookups(db) {
 		{ Name: "EST", AssociatedCity: "New York", GMTDifference: "-5" },
 		{ Name: "JST", AssociatedCity: "Tokyo", GMTDifference: "+9" },
 	]);
-
-	seedIfEmpty("Tags", [{ TagName: "friend" }, { TagName: "colleague" }, { TagName: "family" }, { TagName: "mentor" }, { TagName: "contact" }]);
 
 	seedIfEmpty("SocialPlatform", [
 		{ PlatformName: "Instagram", Logo: "" },

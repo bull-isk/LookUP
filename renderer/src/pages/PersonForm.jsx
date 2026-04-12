@@ -1,10 +1,12 @@
 // renderer/src/pages/PersonForm.jsx
-// Simplified: Create only. 3 fields. No edit flow (handled inline in PersonDetail).
 import { useState, useEffect } from "react";
 import { personCreate, lookupAll } from "../api/bridge";
+import PronounInput from "../components/PronounInput";
+import CategoryInput from "../components/CategoryInput";
+
+const api = window.electronAPI;
 
 const I = {
-	// shared input style key
 	width: "100%",
 	padding: "6px 8px",
 	border: "1px solid var(--color-border)",
@@ -13,17 +15,19 @@ const I = {
 	color: "var(--color-text)",
 	marginTop: 4,
 };
+const lbl = { display: "block", marginBottom: 14, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" };
 
 export default function PersonForm({ onSaved, onCancel }) {
 	const [name, setName] = useState("");
 	const [nick, setNick] = useState("");
-	const [catId, setCatId] = useState("");
-	const [cats, setCats] = useState([]);
+	const [catId, setCatId] = useState(null);
+	const [pronounIds, setPronounIds] = useState([]);
+	const [lookups, setLookups] = useState(null);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
-		lookupAll().then((d) => setCats(d.categories));
+		lookupAll().then(setLookups);
 	}, []);
 
 	const handleSubmit = async () => {
@@ -37,12 +41,13 @@ export default function PersonForm({ onSaved, onCancel }) {
 			const id = await personCreate({
 				FullName: name.trim(),
 				Nickname: nick.trim() || null,
-				CategoryID: catId ? Number(catId) : null,
+				CategoryID: catId || null,
 				Birthdate: null,
 				Address: null,
 				ImpressionNote: null,
 				TimezoneID: null,
 			});
+			if (pronounIds.length > 0) await api.personSetPronouns(id, pronounIds);
 			onSaved(id);
 		} catch (e) {
 			setError(e.message || "Failed to create.");
@@ -50,48 +55,75 @@ export default function PersonForm({ onSaved, onCancel }) {
 		}
 	};
 
-	const handleKey = (e) => {
-		if (e.key === "Enter") handleSubmit();
-	};
+	const refreshLookups = () => lookupAll().then(setLookups);
+
+	if (!lookups) return <div style={{ color: "var(--color-text-muted)" }}>Loading…</div>;
 
 	return (
-		<div style={{ maxWidth: 400 }}>
-			<h3 style={{ margin: "0 0 16px", color: "var(--color-text)" }}>New Person</h3>
-			{error && <div style={{ color: "var(--color-danger)", marginBottom: 8 }}>{error}</div>}
+		<div style={{ maxWidth: 420 }}>
+			<h3 style={{ margin: "0 0 20px", color: "var(--color-text)" }}>New Person</h3>
+			{error && <div style={{ color: "var(--color-danger)", marginBottom: 10 }}>{error}</div>}
 
-			<label style={{ display: "block", marginBottom: 12, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+			<label style={lbl}>
 				Full Name *
-				<input autoFocus style={I} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Full name" />
+				<input autoFocus style={I} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} placeholder="Full name" />
 			</label>
 
-			<label style={{ display: "block", marginBottom: 12, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+			<label style={lbl}>
 				Nickname
-				<input style={I} value={nick} onChange={(e) => setNick(e.target.value)} onKeyDown={handleKey} placeholder="Nickname (optional)" />
+				<input style={I} value={nick} onChange={(e) => setNick(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} placeholder="Optional" />
 			</label>
 
-			<label style={{ display: "block", marginBottom: 20, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+			<label style={lbl}>
 				Category
-				<select style={I} value={catId} onChange={(e) => setCatId(e.target.value)}>
-					<option value="">— none —</option>
-					{cats.map((c) => (
-						<option key={c.CategoryID} value={c.CategoryID}>
-							{c.CategoryName}
-						</option>
-					))}
-				</select>
+				<div style={{ marginTop: 4 }}>
+					<CategoryInput
+						value={catId}
+						categories={lookups.categories}
+						onChange={setCatId}
+						onNewCategory={async (name) => {
+							const id = await api.lookupFindOrCreateCategory(name);
+							refreshLookups();
+							return id;
+						}}
+					/>
+				</div>
 			</label>
 
-			<div style={{ display: "flex", gap: 8 }}>
+			<label style={lbl}>
+				Pronouns
+				<div style={{ marginTop: 6 }}>
+					<PronounInput
+						value={pronounIds}
+						allPronouns={lookups.pronouns}
+						onChange={setPronounIds}
+						onNewPronoun={async (text) => {
+							const id = await api.lookupFindOrCreatePronoun(text);
+							refreshLookups();
+							return id;
+						}}
+					/>
+				</div>
+			</label>
+
+			<div style={{ display: "flex", gap: 8, marginTop: 8 }}>
 				<button
 					onClick={handleSubmit}
 					disabled={saving}
-					style={{ padding: "6px 18px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", fontWeight: "bold" }}
+					style={{ padding: "6px 18px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", fontWeight: "bold", cursor: "pointer" }}
 				>
 					{saving ? "Creating…" : "Create"}
 				</button>
 				<button
 					onClick={onCancel}
-					style={{ padding: "6px 14px", background: "transparent", color: "var(--color-text-muted)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)" }}
+					style={{
+						padding: "6px 14px",
+						background: "transparent",
+						color: "var(--color-text-muted)",
+						border: "1px solid var(--color-border)",
+						borderRadius: "var(--radius-sm)",
+						cursor: "pointer",
+					}}
 				>
 					Cancel
 				</button>

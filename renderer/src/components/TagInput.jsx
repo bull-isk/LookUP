@@ -1,151 +1,133 @@
 // renderer/src/components/TagInput.jsx
-// Props:
-//   value: string[]   — current tag names
-//   onChange: (names: string[]) => void
-//   allTags: string[] — all existing tag names for suggestions
+import { useState } from "react";
+import Chip from "./Chip";
 
-import { useState, useRef } from "react";
+export default function TagInput({ value = [], onChange, allTags = [], onTagClick }) {
+	const [rowHovered, setRowHovered] = useState(false);
+	const [addingOpen, setAddingOpen] = useState(false);
+	const [addInput, setAddInput] = useState("");
+	const [editingTag, setEditingTag] = useState(null);
+	const [editDraft, setEditDraft] = useState("");
 
-export default function TagInput({ value = [], onChange, allTags = [] }) {
-	const [input, setInput] = useState("");
-	const [showSug, setShowSug] = useState(false);
-	const inputRef = useRef(null);
+	const suggestions = allTags.filter((t) => t.toLowerCase().includes(addInput.toLowerCase()) && !value.map((v) => v.toLowerCase()).includes(t.toLowerCase()) && addInput.trim().length > 0);
 
-	const suggestions = allTags.filter((t) => t.toLowerCase().includes(input.toLowerCase()) && !value.map((v) => v.toLowerCase()).includes(t.toLowerCase()) && input.trim().length > 0);
-
-	const addTag = (name) => {
-		const trimmed = name.trim();
-		if (!trimmed) return;
-		// Case-insensitive dedup against current value
-		if (value.some((v) => v.toLowerCase() === trimmed.toLowerCase())) {
-			setInput("");
+	const commitAdd = () => {
+		const trimmed = addInput.trim();
+		if (!trimmed) {
+			setAddingOpen(false);
 			return;
 		}
-		onChange([...value, trimmed]);
-		setInput("");
-		setShowSug(false);
-		inputRef.current?.focus();
+		if (!value.some((v) => v.toLowerCase() === trimmed.toLowerCase())) {
+			onChange([...value, trimmed]);
+		}
+		setAddInput("");
+		setAddingOpen(false);
 	};
 
-	const removeTag = (name) => onChange(value.filter((v) => v !== name));
-
-	const handleKey = (e) => {
-		if (e.key === "Enter") {
-			e.preventDefault();
-			if (suggestions.length > 0 && input.trim()) {
-				// If input matches a suggestion exactly (case-insensitive), use that
-				const exact = suggestions.find((s) => s.toLowerCase() === input.trim().toLowerCase());
-				addTag(exact || input);
-			} else {
-				addTag(input);
-			}
+	const commitEdit = (oldName) => {
+		const trimmed = editDraft.trim();
+		if (!trimmed || trimmed.toLowerCase() === oldName.toLowerCase()) {
+			setEditingTag(null);
+			return;
 		}
-		if (e.key === "Backspace" && !input && value.length > 0) {
-			onChange(value.slice(0, -1));
-		}
+		onChange(value.map((v) => (v === oldName ? trimmed : v)));
+		setEditingTag(null);
 	};
+
+	const deleteTag = (name) => onChange(value.filter((v) => v !== name));
 
 	return (
-		<div style={{ position: "relative" }}>
-			{/* Tag chips + input inline */}
-			<div
-				onClick={() => inputRef.current?.focus()}
-				style={{
-					display: "flex",
-					flexWrap: "wrap",
-					gap: 4,
-					alignItems: "center",
-					padding: "4px 6px",
-					minHeight: 30,
-					border: "1px solid var(--color-border)",
-					borderRadius: "var(--radius-sm)",
-					background: "var(--color-surface-2)",
-					cursor: "text",
-				}}
-			>
-				{value.map((tag) => (
-					<span
-						key={tag}
-						style={{
-							background: "var(--color-active)",
-							color: "var(--color-text-on-primary)",
-							padding: "1px 6px",
-							borderRadius: "var(--radius-sm)",
-							fontSize: "var(--font-size-sm)",
-							display: "flex",
-							alignItems: "center",
-							gap: 3,
-						}}
-					>
-						{tag}
-						<span
-							onClick={(e) => {
-								e.stopPropagation();
-								removeTag(tag);
-							}}
-							style={{ cursor: "pointer", opacity: 0.7, fontSize: 10, lineHeight: 1 }}
-						>
-							×
-						</span>
-					</span>
-				))}
-				<input
-					ref={inputRef}
-					value={input}
-					onChange={(e) => {
-						setInput(e.target.value);
-						setShowSug(true);
-					}}
-					onKeyDown={handleKey}
-					onFocus={() => setShowSug(true)}
-					onBlur={() => setTimeout(() => setShowSug(false), 150)}
-					placeholder={value.length === 0 ? "Add tag…" : ""}
-					style={{
-						border: "none",
-						outline: "none",
-						background: "transparent",
-						color: "var(--color-text)",
-						flex: 1,
-						minWidth: 80,
-						padding: 0,
-					}}
-				/>
-			</div>
+		<div
+			onMouseEnter={() => setRowHovered(true)}
+			onMouseLeave={() => setRowHovered(false)}
+			style={{ display: "flex", flexWrap: "wrap", alignItems: "center", minHeight: 28, position: "relative" }}
+		>
+			{value.length === 0 && !addingOpen && <span style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No tags</span>}
 
-			{/* Suggestions dropdown */}
-			{showSug && suggestions.length > 0 && (
-				<div
-					style={{
-						position: "absolute",
-						top: "100%",
-						left: 0,
-						right: 0,
-						zIndex: 100,
-						background: "var(--color-surface)",
-						border: "1px solid var(--color-border)",
-						borderTop: "none",
-						borderRadius: "0 0 var(--radius-sm) var(--radius-sm)",
-						maxHeight: 140,
-						overflowY: "auto",
-					}}
-				>
-					{suggestions.map((s) => (
+			{value.map((tag) =>
+				editingTag === tag ? (
+					<Chip key={tag} editing editValue={editDraft} onEditChange={setEditDraft} onEditCommit={() => commitEdit(tag)} onEditCancel={() => setEditingTag(null)} />
+				) : (
+					<Chip
+						key={tag}
+						label={tag}
+						// Tag chip click → navigate to tag drill-down page
+						onClick={onTagClick ? () => onTagClick(tag) : undefined}
+						onEdit={() => {
+							setEditDraft(tag);
+							setEditingTag(tag);
+						}}
+						onDelete={() => deleteTag(tag)}
+					/>
+				),
+			)}
+
+			{/* Inline add */}
+			{addingOpen ? (
+				<span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+					<input
+						autoFocus
+						value={addInput}
+						onChange={(e) => setAddInput(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") commitAdd();
+							if (e.key === "Escape") {
+								setAddingOpen(false);
+								setAddInput("");
+							}
+						}}
+						onBlur={() =>
+							setTimeout(() => {
+								setAddingOpen(false);
+								setAddInput("");
+							}, 150)
+						}
+						placeholder="tag name…"
+						style={{
+							padding: "2px 6px",
+							border: "1px solid var(--color-accent)",
+							borderRadius: "var(--radius-sm)",
+							background: "var(--color-surface-2)",
+							color: "var(--color-text)",
+							fontSize: "var(--font-size-sm)",
+							width: 100,
+						}}
+					/>
+					{suggestions.length > 0 && (
 						<div
-							key={s}
-							onMouseDown={() => addTag(s)}
 							style={{
-								padding: "5px 10px",
-								cursor: "pointer",
-								fontSize: "var(--font-size-sm)",
-								color: "var(--color-text)",
+								position: "absolute",
+								top: "100%",
+								left: 0,
+								zIndex: 50,
+								minWidth: 120,
+								background: "var(--color-surface)",
+								border: "1px solid var(--color-border)",
+								borderRadius: "var(--radius-sm)",
+								marginTop: 2,
+								overflow: "hidden",
 							}}
-							onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
-							onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
 						>
-							{s}
+							{suggestions.slice(0, 6).map((s) => (
+								<div
+									key={s}
+									onMouseDown={() => {
+										onChange([...value, s]);
+										setAddInput("");
+										setAddingOpen(false);
+									}}
+									style={{ padding: "4px 8px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
+									onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+									onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+								>
+									{s}
+								</div>
+							))}
 						</div>
-					))}
-				</div>
+					)}
+				</span>
+			) : (
+				rowHovered && <Chip addChip onAdd={() => setAddingOpen(true)} />
 			)}
 		</div>
 	);
