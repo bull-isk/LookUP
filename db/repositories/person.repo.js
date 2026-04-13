@@ -93,10 +93,8 @@ function getFullPerson(id) {
 			.prepare(
 				`
           SELECT EduHistID,
-                InstitutionText, CityText, Faculty, Major,
-                EduLevelText, SubjectFocus,
-                StartYearText, EndYearText, IsPresent,
-                FieldOfStudy, StartYear, EndYear
+                InstitutionText, FieldOfStudy, Faculty, EduLevelText,
+                StartYear, EndYear, IsPresent
           FROM EduHistory
           WHERE PersonID = ?
         `,
@@ -107,8 +105,8 @@ function getFullPerson(id) {
 			.prepare(
 				`
           SELECT OrgHistID,
-                OrgNameText, Role, StartYearText, EndYearText,
-                Division, StartYear, EndYear  -- legacy fields
+                OrgNameText, Role,
+                StartYear, EndYear, IsPresent
           FROM OrgHistory
           WHERE PersonID = ?
         `,

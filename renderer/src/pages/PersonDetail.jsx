@@ -327,9 +327,9 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 		InstitutionText: "",
 		EduLevelText: "",
 		Faculty: "",
-		FieldOfStudy: "", // was Major — now unified field for both College major & HS field
-		StartYearText: "",
-		EndYearText: "",
+		FieldOfStudy: "",
+		StartYear: "", // integer year as string while editing
+		EndYear: "",
 		IsPresent: false,
 		...initial,
 	});
@@ -337,9 +337,6 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 
 	const showFieldOfStudy = vals.EduLevelText === "College" || vals.EduLevelText === "High School";
 	const showFaculty = vals.EduLevelText === "College";
-	const showEndYear = !!vals.StartYearText.trim() && !vals.IsPresent;
-
-	// Label adapts by level
 	const fieldLabel = vals.EduLevelText === "High School" ? "Subject Focus" : "Major";
 
 	return (
@@ -363,7 +360,6 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 					</select>
 				</label>
 
-				{/* College: Faculty */}
 				{showFaculty && (
 					<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
 						<span style={lbl}>Faculty</span>
@@ -371,7 +367,6 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 					</label>
 				)}
 
-				{/* College or High School: FieldOfStudy (label changes by level) */}
 				{showFieldOfStudy && (
 					<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
 						<span style={lbl}>{fieldLabel}</span>
@@ -381,24 +376,83 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 
 				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
 					<span style={lbl}>Start Year</span>
-					<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.StartYearText} onChange={set("StartYearText")} placeholder="e.g. 2018" />
+					<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.StartYear} onChange={set("StartYear")} placeholder="e.g. 2018" />
 				</label>
 
-				{vals.StartYearText.trim() && (
+				{vals.StartYear && String(vals.StartYear).trim() && (
 					<>
 						{!vals.IsPresent && (
 							<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
 								<span style={lbl}>End Year</span>
-								<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.EndYearText} onChange={set("EndYearText")} placeholder="e.g. 2022" />
+								<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.EndYear} onChange={set("EndYear")} placeholder="e.g. 2022" />
 							</label>
 						)}
 						<label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
-							<input
-								type="checkbox"
-								checked={!!vals.IsPresent}
-								onChange={(e) => setVals((v) => ({ ...v, IsPresent: e.target.checked, EndYearText: e.target.checked ? "" : v.EndYearText }))}
-							/>
+							<input type="checkbox" checked={!!vals.IsPresent} onChange={(e) => setVals((v) => ({ ...v, IsPresent: e.target.checked, EndYear: e.target.checked ? "" : v.EndYear }))} />
 							Currently enrolled
+						</label>
+					</>
+				)}
+			</div>
+			<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+				<button style={btnG} onClick={onClose}>
+					Cancel
+				</button>
+				<button
+					style={btnP}
+					onClick={() => {
+						onSave(vals);
+						onClose();
+					}}
+				>
+					Save
+				</button>
+			</div>
+		</Modal>
+	);
+}
+
+function OrgPopup({ title, initial = {}, onSave, onClose }) {
+	const [vals, setVals] = useState({
+		OrgNameText: "",
+		Role: "",
+		StartYear: "",
+		EndYear: "",
+		IsPresent: false,
+		...initial,
+	});
+	const set = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.value }));
+
+	return (
+		<Modal onClose={onClose} width={400}>
+			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>{title}</div>
+			<div style={{ padding: 18 }}>
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Organization *</span>
+					<input style={{ ...iStyle, marginTop: 2 }} value={vals.OrgNameText} onChange={set("OrgNameText")} />
+				</label>
+
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Role / Division</span>
+					<input style={{ ...iStyle, marginTop: 2 }} value={vals.Role} onChange={set("Role")} />
+				</label>
+
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+					<span style={lbl}>Start Year</span>
+					<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.StartYear} onChange={set("StartYear")} placeholder="e.g. 2020" />
+				</label>
+
+				{vals.StartYear && String(vals.StartYear).trim() && (
+					<>
+						{!vals.IsPresent && (
+							<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+								<span style={lbl}>End Year</span>
+								<input style={{ ...iStyle, marginTop: 2 }} type="number" min="1900" max="2099" value={vals.EndYear} onChange={set("EndYear")} placeholder="e.g. 2024" />
+							</label>
+						)}
+						<label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+							<input type="checkbox" checked={!!vals.IsPresent} onChange={(e) => setVals((v) => ({ ...v, IsPresent: e.target.checked, EndYear: e.target.checked ? "" : v.EndYear }))} />
+							Currently working here
 						</label>
 					</>
 				)}
@@ -555,7 +609,7 @@ function PlatformSelect({ platforms, value, onChange, onAddNew }) {
 }
 
 // ════════════════════════════════════════════════════════════════
-export default function PersonDetail({ personId, onDeleted }) {
+export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 	const [data, setData] = useState(null);
 	const [lookups, setLookups] = useState(null);
 	const [specifics, setSpecifics] = useState([]);
@@ -564,6 +618,8 @@ export default function PersonDetail({ personId, onDeleted }) {
 	const [adding, setAdding] = useState(null);
 	const [editingId, setEditingId] = useState(null);
 	const [quickAdd, setQuickAdd] = useState(false);
+
+	const [specAddOpen, setSpecAddOpen] = useState(false);
 
 	// Socials add state
 	const [socialPlatformId, setSocialPlatformId] = useState(null);
@@ -709,17 +765,7 @@ export default function PersonDetail({ personId, onDeleted }) {
 				<div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5 }}>
 					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 6 }}>Tags</span>
 					<div style={{ flex: 1 }}>
-						<TagInput
-							value={tags.map((t) => t.TagName)}
-							allTags={allTagNames}
-							onChange={saveTagsInline}
-							// onTagClick={(tagName) => {
-							// 	const tag = lookups.tags.find((t) => t.TagName.toLowerCase() === tagName.toLowerCase());
-							// 	if (tag) window.electronAPI.lookupPersonsByTag(tag.TagID); // signals navigation intent
-							// 	window.dispatchEvent(new CustomEvent("lookup:openTag", { detail: { tagName } }));
-							// }}
-							// onTagClick={onOpenTag}
-						/>{" "}
+						<TagInput value={tags.map((t) => t.TagName)} allTags={allTagNames} onChange={saveTagsInline} onTagClick={onOpenTag} />{" "}
 					</div>
 				</div>
 			</div>
@@ -728,11 +774,15 @@ export default function PersonDetail({ personId, onDeleted }) {
 
 			{/* ── SPECIFICS ── */}
 			<div style={{ marginBottom: 16 }}>
-				{/* Header: label + Add button in same row */}
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}></div>
-				<div style={{ marginBottom: 16 }}>
-					<SpecificsEditor specifics={specifics} tree={specTree} personId={personId} onReload={reloadSpec} showHeader />
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+					<div style={secTitle}>Specifics</div>
+					{!specAddOpen && (
+						<button onClick={() => setSpecAddOpen(true)} style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }}>
+							+ Add
+						</button>
+					)}
 				</div>
+				<SpecificsEditor specifics={specifics} tree={specTree} personId={personId} onReload={reloadSpec} addOpen={specAddOpen} onAddClose={() => setSpecAddOpen(false)} />
 			</div>
 
 			<div style={divider} />
@@ -746,13 +796,8 @@ export default function PersonDetail({ personId, onDeleted }) {
 					</button>
 				</div>
 				{isAdding("org") && (
-					<PopupForm
+					<OrgPopup
 						title="Add Organization"
-						fields={[
-							{ key: "OrgNameText", label: "Organization" },
-							{ key: "Role", label: "Role / Division" },
-							{ key: "StartYearText", label: "Year range (e.g. 2020–now)" },
-						]}
 						onSave={async (v) => {
 							await orgCreate({ PersonID: personId, ...v });
 							reload();
@@ -761,20 +806,23 @@ export default function PersonDetail({ personId, onDeleted }) {
 					/>
 				)}
 				{orgHistory.map((o) => {
-					const org = o.OrgNameText || o.OrgName || "—";
-					const role = o.Role || o.Division || "";
-					const years = o.StartYearText || (o.StartYear ? `${o.StartYear}–${o.EndYear || "present"}` : "");
+					const org = o.OrgNameText || "—";
+					const role = o.Role || "";
+					const startYr = o.StartYear ? String(o.StartYear) : "";
+					const endYr = o.IsPresent ? "present" : o.EndYear ? String(o.EndYear) : "";
+					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
 					return (
 						<div key={o.OrgHistID}>
 							{isEditing("org", o.OrgHistID) ? (
-								<PopupForm
+								<OrgPopup
 									title="Edit Organization"
-									fields={[
-										{ key: "OrgNameText", label: "Organization" },
-										{ key: "Role", label: "Role / Division" },
-										{ key: "StartYearText", label: "Year range" },
-									]}
-									initial={{ OrgNameText: o.OrgNameText || "", Role: o.Role || "", StartYearText: o.StartYearText || years }}
+									initial={{
+										OrgNameText: o.OrgNameText || "",
+										Role: o.Role || "",
+										StartYear: o.StartYear ? String(o.StartYear) : "",
+										EndYear: o.EndYear ? String(o.EndYear) : "",
+										IsPresent: !!o.IsPresent,
+									}}
 									onSave={async (v) => {
 										await orgUpdate(o.OrgHistID, v);
 										reload();
@@ -834,12 +882,11 @@ export default function PersonDetail({ personId, onDeleted }) {
 					/>
 				)}
 				{eduHistory.map((e) => {
-					const inst = e.InstitutionText || e.FieldOfStudy || "—";
+					const inst = e.InstitutionText || "—";
 					const level = e.EduLevelText || "";
-					const startYr = e.StartYearText || (e.StartYear ? String(e.StartYear) : "");
-					const endYr = e.IsPresent ? "present" : e.EndYearText || (e.EndYear ? String(e.EndYear) : "");
+					const startYr = e.StartYear ? String(e.StartYear) : "";
+					const endYr = e.IsPresent ? "present" : e.EndYear ? String(e.EndYear) : "";
 					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
-					// FieldOfStudy replaces Major+SubjectFocus; Faculty stays
 					const extra = [e.Faculty, e.FieldOfStudy].filter(Boolean).join(" · ");
 					return (
 						<div key={e.EduHistID}>
@@ -850,9 +897,9 @@ export default function PersonDetail({ personId, onDeleted }) {
 										InstitutionText: e.InstitutionText || "",
 										EduLevelText: e.EduLevelText || "",
 										Faculty: e.Faculty || "",
-										FieldOfStudy: e.FieldOfStudy || e.Major || "", // migrate old Major data
-										StartYearText: e.StartYearText || startYr,
-										EndYearText: e.EndYearText || "",
+										FieldOfStudy: e.FieldOfStudy || "",
+										StartYear: e.StartYear ? String(e.StartYear) : "",
+										EndYear: e.EndYear ? String(e.EndYear) : "",
 										IsPresent: !!e.IsPresent,
 									}}
 									onSave={async (v) => {

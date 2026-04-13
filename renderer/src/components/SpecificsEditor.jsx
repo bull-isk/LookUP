@@ -308,39 +308,27 @@ function PointRow({ pt, personId, onReload }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────
-export default function SpecificsEditor({ specifics, tree, personId, onReload, showHeader = false }) {
-	const [addOpen, setAddOpen] = useState(false);
+export default function SpecificsEditor({ specifics, tree, personId, onReload, addOpen = false, onAddClose }) {
+	// No internal addOpen state — it's controlled by parent
 
 	return (
 		<div>
-			{/* When showHeader=true, render "SPECIFICS" label + + Add on one row */}
-			<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-				{showHeader && <div style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "var(--color-accent)" }}>Specifics</div>}
-				{!addOpen && (
-					<button
-						onClick={() => setAddOpen(true)}
-						style={{
-							padding: "2px 8px",
-							background: "transparent",
-							border: "1px solid var(--color-border)",
-							borderRadius: "var(--radius-sm)",
-							color: "var(--color-text-muted)",
-							cursor: "pointer",
-							fontSize: "var(--font-size-xs)",
-						}}
-					>
-						+ Add
-					</button>
-				)}
-			</div>
-
-			{addOpen && <InlineAddForm tree={tree} personId={personId} onDone={onReload} onClose={() => setAddOpen(false)} />}
+			{addOpen && <InlineAddForm tree={tree} personId={personId} onDone={onReload} onClose={onAddClose} />}
 
 			{specifics.length === 0 && !addOpen && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No specifics yet.</div>}
 
 			{specifics.map((sub) => (
 				<div key={sub.SubSpecificsID} style={{ marginBottom: 12 }}>
-					<div style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "var(--color-accent)", marginBottom: 4 }}>
+					<div
+						style={{
+							fontSize: "var(--font-size-xs)",
+							fontWeight: "bold",
+							textTransform: "uppercase",
+							letterSpacing: 1,
+							color: "var(--color-accent)",
+							marginBottom: 4,
+						}}
+					>
 						{sub.SubName}
 					</div>
 					{sub.points.map((pt) => (

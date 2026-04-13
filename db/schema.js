@@ -426,6 +426,12 @@ function runMigrations(db) {
 		})();
 		console.log("[DB] Migration: OrgHistory FK columns are now nullable");
 	}
+
+	// Post-Phase-C: add IsPresent to OrgHistory (same as EduHistory)
+	if (!hasColumn("OrgHistory", "IsPresent")) {
+		db.exec(`ALTER TABLE OrgHistory ADD COLUMN IsPresent INTEGER DEFAULT 0`);
+		console.log("[DB] Migration: added OrgHistory.IsPresent");
+	}
 }
 
 function seedLookups(db) {
