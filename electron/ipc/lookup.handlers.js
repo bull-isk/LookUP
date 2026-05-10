@@ -19,6 +19,9 @@ module.exports = function registerLookupHandlers() {
 	// Categories
 	ipcMain.handle("lookup:findOrCreateCategory", (_, n, hex) => repo.findOrCreateCategory(n, hex));
 	ipcMain.handle("lookup:pruneCategories", () => repo.pruneOrphanCategories());
+	// Academic Institutions and Organizations
+	ipcMain.handle("lookup:findOrCreateInstitution", (_, name) => repo.findOrCreateInstitution(name));
+	ipcMain.handle("lookup:findOrCreateOrganization", (_, name) => repo.findOrCreateOrganization(name));
 
 	const { shell } = require("electron");
 	ipcMain.handle("shell:openExternal", (_, url) => shell.openExternal(url));

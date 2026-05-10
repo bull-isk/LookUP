@@ -60,25 +60,23 @@ function deleteNote(id) {
 }
 
 // ── EDUCATION ────────────────────────────────────────────────────
-// Fields used: PersonID, InstitutionText, FieldOfStudy (was Major),
-//              Faculty, EduLevelText, StartYearText, EndYearText, IsPresent
-// Removed: CityText, SubjectFocus, Major (merged into FieldOfStudy)
+// data: { PersonID, InstID, EduLevelID, Faculty, FieldOfStudy, StartYear, EndYear, IsPresent }
 function createEdu(data) {
 	const id = getDb()
 		.prepare(
 			`
     INSERT INTO EduHistory
-      (PersonID, InstitutionText, FieldOfStudy, Faculty, EduLevelText, StartYear, EndYear, IsPresent)
+      (PersonID, InstID, EduLevelID, Faculty, FieldOfStudy, StartYear, EndYear, IsPresent)
     VALUES
-      (@PersonID, @InstitutionText, @FieldOfStudy, @Faculty, @EduLevelText, @StartYear, @EndYear, @IsPresent)
+      (@PersonID, @InstID, @EduLevelID, @Faculty, @FieldOfStudy, @StartYear, @EndYear, @IsPresent)
   `,
 		)
 		.run({
 			PersonID: data.PersonID,
-			InstitutionText: data.InstitutionText || "",
-			FieldOfStudy: data.FieldOfStudy || "",
-			Faculty: data.Faculty || "",
-			EduLevelText: data.EduLevelText || "",
+			InstID: data.InstID || null,
+			EduLevelID: data.EduLevelID || null,
+			Faculty: data.Faculty || null,
+			FieldOfStudy: data.FieldOfStudy || null,
 			StartYear: data.StartYear ? Number(data.StartYear) : null,
 			EndYear: data.IsPresent ? null : data.EndYear ? Number(data.EndYear) : null,
 			IsPresent: data.IsPresent ? 1 : 0,
@@ -93,22 +91,18 @@ function updateEdu(id, data) {
 		.prepare(
 			`
     UPDATE EduHistory
-    SET InstitutionText=@InstitutionText,
-        FieldOfStudy=@FieldOfStudy,
-        Faculty=@Faculty,
-        EduLevelText=@EduLevelText,
-        StartYear=@StartYear,
-        EndYear=@EndYear,
-        IsPresent=@IsPresent
+    SET InstID=@InstID, EduLevelID=@EduLevelID,
+        Faculty=@Faculty, FieldOfStudy=@FieldOfStudy,
+        StartYear=@StartYear, EndYear=@EndYear, IsPresent=@IsPresent
     WHERE EduHistID=@id
   `,
 		)
 		.run({
 			id,
-			InstitutionText: data.InstitutionText || "",
-			FieldOfStudy: data.FieldOfStudy || "",
-			Faculty: data.Faculty || "",
-			EduLevelText: data.EduLevelText || "",
+			InstID: data.InstID || null,
+			EduLevelID: data.EduLevelID || null,
+			Faculty: data.Faculty || null,
+			FieldOfStudy: data.FieldOfStudy || null,
 			StartYear: data.StartYear ? Number(data.StartYear) : null,
 			EndYear: data.IsPresent ? null : data.EndYear ? Number(data.EndYear) : null,
 			IsPresent: data.IsPresent ? 1 : 0,
@@ -123,18 +117,19 @@ function deleteEdu(id) {
 }
 
 // ── ORGANIZATION ──────────────────────────────────────────────────
-// OrgID is now nullable.
+// data: { PersonID, OrgID, Role, StartYear, EndYear, IsPresent }
+
 function createOrg(data) {
   const id = getDb().prepare(`
-    INSERT INTO OrgHistory (PersonID, OrgNameText, Role, StartYear, EndYear, IsPresent)
-    VALUES (@PersonID, @OrgNameText, @Role, @StartYear, @EndYear, @IsPresent)
+    INSERT INTO OrgHistory (PersonID, OrgID, Role, StartYear, EndYear, IsPresent)
+    VALUES (@PersonID, @OrgID, @Role, @StartYear, @EndYear, @IsPresent)
   `).run({
-    PersonID:    data.PersonID,
-    OrgNameText: data.OrgNameText || '',
-    Role:        data.Role        || '',
-    StartYear:   data.StartYear   ? Number(data.StartYear) : null,
-    EndYear:     data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
-    IsPresent:   data.IsPresent ? 1 : 0,
+    PersonID:  data.PersonID,
+    OrgID:     data.OrgID     || null,
+    Role:      data.Role      || null,
+    StartYear: data.StartYear ? Number(data.StartYear) : null,
+    EndYear:   data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
+    IsPresent: data.IsPresent ? 1 : 0,
   }).lastInsertRowid;
   touchLastUpdated(data.PersonID);
   return id;
@@ -144,19 +139,16 @@ function updateOrg(id, data) {
   const o = getDb().prepare(`SELECT PersonID FROM OrgHistory WHERE OrgHistID=?`).get(id);
   getDb().prepare(`
     UPDATE OrgHistory
-    SET OrgNameText=@OrgNameText,
-        Role=@Role,
-        StartYear=@StartYear,
-        EndYear=@EndYear,
-        IsPresent=@IsPresent
+    SET OrgID=@OrgID, Role=@Role,
+        StartYear=@StartYear, EndYear=@EndYear, IsPresent=@IsPresent
     WHERE OrgHistID=@id
   `).run({
     id,
-    OrgNameText: data.OrgNameText || '',
-    Role:        data.Role        || '',
-    StartYear:   data.StartYear   ? Number(data.StartYear) : null,
-    EndYear:     data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
-    IsPresent:   data.IsPresent ? 1 : 0,
+    OrgID:     data.OrgID     || null,
+    Role:      data.Role      || null,
+    StartYear: data.StartYear ? Number(data.StartYear) : null,
+    EndYear:   data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
+    IsPresent: data.IsPresent ? 1 : 0,
   });
   if (o) touchLastUpdated(o.PersonID);
 }

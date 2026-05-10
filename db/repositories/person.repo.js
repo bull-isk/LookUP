@@ -92,11 +92,21 @@ function getFullPerson(id) {
 		eduHistory: db
 			.prepare(
 				`
-          SELECT EduHistID,
-                InstitutionText, FieldOfStudy, Faculty, EduLevelText,
-                StartYear, EndYear, IsPresent
-          FROM EduHistory
-          WHERE PersonID = ?
+        SELECT
+          eh.EduHistID,
+          eh.InstID,
+          ai.InstitutionName,
+          eh.EduLevelID,
+          el.LevelName  AS EduLevelName,
+          eh.Faculty,
+          eh.FieldOfStudy,
+          eh.StartYear,
+          eh.EndYear,
+          eh.IsPresent
+        FROM EduHistory eh
+        LEFT JOIN AcademicInst ai ON eh.InstID = ai.InstID
+        LEFT JOIN EduLevel      el ON eh.EduLevelID = el.EduLevelID
+        WHERE eh.PersonID = ?
         `,
 			)
 			.all(id),
@@ -104,16 +114,25 @@ function getFullPerson(id) {
 		orgHistory: db
 			.prepare(
 				`
-          SELECT OrgHistID,
-                OrgNameText, Role,
-                StartYear, EndYear, IsPresent
-          FROM OrgHistory
-          WHERE PersonID = ?
+        SELECT
+          oh.OrgHistID,
+          oh.OrgID,
+          o.OrgName,
+          oh.Role,
+          oh.StartYear,
+          oh.EndYear,
+          oh.IsPresent
+        FROM OrgHistory oh
+        LEFT JOIN Organization o ON oh.OrgID = o.OrgID
+        WHERE oh.PersonID = ?
         `,
 			)
 			.all(id),
+
 		notes: db.prepare(`SELECT NotesID, Note FROM Notes WHERE PersonID = ?`).all(id),
+
 		quotes: db.prepare(`SELECT QuoteID, Quote, Date FROM Quote WHERE PersonID = ?`).all(id),
+
 		wordMouths: db
 			.prepare(
 				`

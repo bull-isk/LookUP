@@ -319,42 +319,109 @@ function SocialRow({ plat, platformId, accs, onEdit, onDelete, onAdd }) {
 	);
 }
 
-// ── Education popup form — handles conditional fields ─────────────
-const EDU_LEVELS = ["Primary School", "Middle School", "High School", "College", "Other"];
-
-function EduPopup({ title, initial = {}, onSave, onClose }) {
+function EduPopup({ title, initial = {}, onSave, onClose, eduLevels = [], institutions = [] }) {
 	const [vals, setVals] = useState({
-		InstitutionText: "",
-		EduLevelText: "",
+		institutionName: "", // display name — resolved to InstID on save
+		EduLevelID: "",
 		Faculty: "",
 		FieldOfStudy: "",
-		StartYear: "", // integer year as string while editing
+		StartYear: "",
 		EndYear: "",
 		IsPresent: false,
 		...initial,
 	});
+	const [instSuggestions, setInstSuggestions] = useState([]);
+	const [showInstSug, setShowInstSug] = useState(false);
 	const set = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.value }));
 
-	const showFieldOfStudy = vals.EduLevelText === "College" || vals.EduLevelText === "High School";
-	const showFaculty = vals.EduLevelText === "College";
-	const fieldLabel = vals.EduLevelText === "High School" ? "Subject Focus" : "Major";
+	// Filter institution suggestions as user types
+	const handleInstChange = (val) => {
+		setVals((v) => ({ ...v, institutionName: val }));
+		setInstSuggestions(institutions.filter((i) => i.InstitutionName.toLowerCase().includes(val.toLowerCase())).slice(0, 6));
+		setShowInstSug(true);
+	};
+
+	const selectedLevel = eduLevels.find((l) => String(l.EduLevelID) === String(vals.EduLevelID));
+	const levelName = selectedLevel?.LevelName || "";
+	const showFieldOfStudy = levelName === "College" || levelName === "High School";
+	const showFaculty = levelName === "College";
+	const fieldLabel = levelName === "High School" ? "Subject Focus" : "Major";
+
+	const handleSave = async () => {
+		// Resolve InstID: find-or-create based on typed name
+		let instId = null;
+		const instName = vals.institutionName.trim();
+		if (instName) {
+			instId = await window.electronAPI.lookupFindOrCreateInstitution(instName);
+		}
+		onSave({
+			InstID: instId,
+			EduLevelID: vals.EduLevelID ? Number(vals.EduLevelID) : null,
+			Faculty: vals.Faculty,
+			FieldOfStudy: vals.FieldOfStudy,
+			StartYear: vals.StartYear,
+			EndYear: vals.EndYear,
+			IsPresent: vals.IsPresent,
+		});
+		onClose();
+	};
 
 	return (
 		<Modal onClose={onClose} width={440}>
 			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>{title}</div>
 			<div style={{ padding: 18, overflowY: "auto" }}>
-				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+				{/* Institution — autocomplete from AcademicInst table */}
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10, position: "relative" }}>
 					<span style={lbl}>Institution *</span>
-					<input style={{ ...iStyle, marginTop: 2 }} value={vals.InstitutionText} onChange={set("InstitutionText")} />
+					<input
+						style={{ ...iStyle, marginTop: 2 }}
+						value={vals.institutionName}
+						onChange={(e) => handleInstChange(e.target.value)}
+						onFocus={() => setShowInstSug(true)}
+						onBlur={() => setTimeout(() => setShowInstSug(false), 150)}
+						placeholder="e.g. University of Brawijaya"
+					/>
+					{showInstSug && instSuggestions.length > 0 && (
+						<div
+							style={{
+								position: "absolute",
+								top: "100%",
+								left: 0,
+								right: 0,
+								zIndex: 50,
+								background: "var(--color-surface)",
+								border: "1px solid var(--color-border)",
+								borderRadius: "var(--radius-sm)",
+								marginTop: 2,
+								overflow: "hidden",
+							}}
+						>
+							{instSuggestions.map((i) => (
+								<div
+									key={i.InstID}
+									onMouseDown={() => {
+										setVals((v) => ({ ...v, institutionName: i.InstitutionName }));
+										setShowInstSug(false);
+									}}
+									style={{ padding: "4px 8px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
+									onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+									onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+								>
+									{i.InstitutionName}
+								</div>
+							))}
+						</div>
+					)}
 				</label>
 
+				{/* Education Level — from DB */}
 				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
 					<span style={lbl}>Education Level</span>
-					<select style={{ ...iStyle, marginTop: 2 }} value={vals.EduLevelText} onChange={set("EduLevelText")}>
+					<select style={{ ...iStyle, marginTop: 2 }} value={vals.EduLevelID} onChange={set("EduLevelID")}>
 						<option value="">— select —</option>
-						{EDU_LEVELS.map((l) => (
-							<option key={l} value={l}>
-								{l}
+						{eduLevels.map((l) => (
+							<option key={l.EduLevelID} value={l.EduLevelID}>
+								{l.LevelName}
 							</option>
 						))}
 					</select>
@@ -398,13 +465,7 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 				<button style={btnG} onClick={onClose}>
 					Cancel
 				</button>
-				<button
-					style={btnP}
-					onClick={() => {
-						onSave(vals);
-						onClose();
-					}}
-				>
+				<button style={btnP} onClick={handleSave}>
 					Save
 				</button>
 			</div>
@@ -412,24 +473,87 @@ function EduPopup({ title, initial = {}, onSave, onClose }) {
 	);
 }
 
-function OrgPopup({ title, initial = {}, onSave, onClose }) {
+function OrgPopup({ title, initial = {}, onSave, onClose, orgs = [] }) {
 	const [vals, setVals] = useState({
-		OrgNameText: "",
+		orgName: "", // display name — resolved to OrgID on save
 		Role: "",
 		StartYear: "",
 		EndYear: "",
 		IsPresent: false,
 		...initial,
 	});
+	const [orgSuggestions, setOrgSuggestions] = useState([]);
+	const [showOrgSug, setShowOrgSug] = useState(false);
 	const set = (k) => (e) => setVals((v) => ({ ...v, [k]: e.target.value }));
+
+	const handleOrgChange = (val) => {
+		setVals((v) => ({ ...v, orgName: val }));
+		setOrgSuggestions(orgs.filter((o) => o.OrgName.toLowerCase().includes(val.toLowerCase())).slice(0, 6));
+		setShowOrgSug(true);
+	};
+
+	const handleSave = async () => {
+		let orgId = null;
+		const orgName = vals.orgName.trim();
+		if (orgName) {
+			orgId = await window.electronAPI.lookupFindOrCreateOrganization(orgName);
+		}
+		onSave({
+			OrgID: orgId,
+			Role: vals.Role,
+			StartYear: vals.StartYear,
+			EndYear: vals.EndYear,
+			IsPresent: vals.IsPresent,
+		});
+		onClose();
+	};
 
 	return (
 		<Modal onClose={onClose} width={400}>
 			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>{title}</div>
 			<div style={{ padding: 18 }}>
-				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
+				{/* Organization name — autocomplete */}
+				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10, position: "relative" }}>
 					<span style={lbl}>Organization *</span>
-					<input style={{ ...iStyle, marginTop: 2 }} value={vals.OrgNameText} onChange={set("OrgNameText")} />
+					<input
+						style={{ ...iStyle, marginTop: 2 }}
+						value={vals.orgName}
+						onChange={(e) => handleOrgChange(e.target.value)}
+						onFocus={() => setShowOrgSug(true)}
+						onBlur={() => setTimeout(() => setShowOrgSug(false), 150)}
+						placeholder="e.g. LPM Display"
+					/>
+					{showOrgSug && orgSuggestions.length > 0 && (
+						<div
+							style={{
+								position: "absolute",
+								top: "100%",
+								left: 0,
+								right: 0,
+								zIndex: 50,
+								background: "var(--color-surface)",
+								border: "1px solid var(--color-border)",
+								borderRadius: "var(--radius-sm)",
+								marginTop: 2,
+								overflow: "hidden",
+							}}
+						>
+							{orgSuggestions.map((o) => (
+								<div
+									key={o.OrgID}
+									onMouseDown={() => {
+										setVals((v) => ({ ...v, orgName: o.OrgName }));
+										setShowOrgSug(false);
+									}}
+									style={{ padding: "4px 8px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
+									onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
+									onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+								>
+									{o.OrgName}
+								</div>
+							))}
+						</div>
+					)}
 				</label>
 
 				<label style={{ display: "flex", flexDirection: "column", marginBottom: 10 }}>
@@ -461,13 +585,7 @@ function OrgPopup({ title, initial = {}, onSave, onClose }) {
 				<button style={btnG} onClick={onClose}>
 					Cancel
 				</button>
-				<button
-					style={btnP}
-					onClick={() => {
-						onSave(vals);
-						onClose();
-					}}
-				>
+				<button style={btnP} onClick={handleSave}>
 					Save
 				</button>
 			</div>
@@ -798,6 +916,7 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 				{isAdding("org") && (
 					<OrgPopup
 						title="Add Organization"
+						orgs={lookups.orgs}
 						onSave={async (v) => {
 							await orgCreate({ PersonID: personId, ...v });
 							reload();
@@ -806,7 +925,7 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 					/>
 				)}
 				{orgHistory.map((o) => {
-					const org = o.OrgNameText || "—";
+					const org = o.OrgName || "—";
 					const role = o.Role || "";
 					const startYr = o.StartYear ? String(o.StartYear) : "";
 					const endYr = o.IsPresent ? "present" : o.EndYear ? String(o.EndYear) : "";
@@ -816,8 +935,9 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 							{isEditing("org", o.OrgHistID) ? (
 								<OrgPopup
 									title="Edit Organization"
+									orgs={lookups.orgs}
 									initial={{
-										OrgNameText: o.OrgNameText || "",
+										orgName: o.OrgName || "",
 										Role: o.Role || "",
 										StartYear: o.StartYear ? String(o.StartYear) : "",
 										EndYear: o.EndYear ? String(o.EndYear) : "",
@@ -865,25 +985,18 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 				{isAdding("edu") && (
 					<EduPopup
 						title="Add Education"
+						eduLevels={lookups.eduLevels}
+						institutions={lookups.institutions}
 						onSave={async (v) => {
-							await eduCreate({
-								PersonID: personId,
-								InstitutionText: v.InstitutionText,
-								EduLevelText: v.EduLevelText,
-								Faculty: v.Faculty,
-								FieldOfStudy: v.FieldOfStudy, // ← was Major
-								StartYearText: v.StartYearText,
-								EndYearText: v.EndYearText,
-								IsPresent: v.IsPresent,
-							});
+							await eduCreate({ PersonID: personId, ...v });
 							reload();
 						}}
 						onClose={stopAdding}
 					/>
 				)}
 				{eduHistory.map((e) => {
-					const inst = e.InstitutionText || "—";
-					const level = e.EduLevelText || "";
+					const inst = e.InstitutionName || "—";
+					const level = e.EduLevelName || "";
 					const startYr = e.StartYear ? String(e.StartYear) : "";
 					const endYr = e.IsPresent ? "present" : e.EndYear ? String(e.EndYear) : "";
 					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
@@ -893,9 +1006,11 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 							{isEditing("edu", e.EduHistID) ? (
 								<EduPopup
 									title="Edit Education"
+									eduLevels={lookups.eduLevels}
+									institutions={lookups.institutions}
 									initial={{
-										InstitutionText: e.InstitutionText || "",
-										EduLevelText: e.EduLevelText || "",
+										institutionName: e.InstitutionName || "",
+										EduLevelID: e.EduLevelID ? String(e.EduLevelID) : "",
 										Faculty: e.Faculty || "",
 										FieldOfStudy: e.FieldOfStudy || "",
 										StartYear: e.StartYear ? String(e.StartYear) : "",
@@ -1497,6 +1612,13 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 										setSettingsOpen(false);
 									},
 									danger: true,
+								},
+								{
+									label: "👁 Preview Profile UI",
+									action: () => {
+										window.open("./ProfilePreview.html", "_blank");
+										setSettingsOpen(false);
+									},
 								},
 							].map((item) => (
 								<div

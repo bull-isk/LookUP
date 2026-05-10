@@ -65,4 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   openExternal:          (url)            => ipcRenderer.invoke('shell:openExternal', url),
   lookupAddSocialPlatform:(name)          => ipcRenderer.invoke('lookup:addSocialPlatform', name),
+
+  lookupFindOrCreateInstitution:  (name) => ipcRenderer.invoke('lookup:findOrCreateInstitution', name),
+  lookupFindOrCreateOrganization: (name) => ipcRenderer.invoke('lookup:findOrCreateOrganization', name),
 });

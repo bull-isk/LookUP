@@ -13,9 +13,9 @@ function getAllLookups() {
 		pronouns: db.prepare("SELECT * FROM Pronouns ORDER BY Pronouns").all(),
 		tags: db.prepare("SELECT * FROM Tags ORDER BY TagName").all(),
 		timezones: db.prepare("SELECT * FROM Timezones").all(),
-		eduLevels: db.prepare("SELECT * FROM EduLevel").all(),
+		eduLevels: db.prepare("SELECT * FROM EduLevel ORDER BY EduLevelID").all(),
+		institutions: db.prepare("SELECT * FROM AcademicInst ORDER BY InstitutionName").all(),
 		orgs: db.prepare("SELECT * FROM Organization").all(),
-		institutions: db.prepare("SELECT * FROM AcademicInst").all(),
 		platforms: db.prepare("SELECT * FROM SocialPlatform").all(),
 		persons: db.prepare("SELECT PersonID, FullName FROM Person ORDER BY FullName").all(),
 	};
@@ -117,6 +117,28 @@ function pruneOrphanCategories() {
 	).run(...DEFAULT_CATEGORIES);
 }
 
+// ── ACADEMIC INSTITUTIONS AND ORGANIZATIONS ────────────────────────────────────────────────────
+
+// Find AcademicInst by name (case-insensitive), or create it. Returns InstID.
+function findOrCreateInstitution(name) {
+	const db = getDb();
+	const trimmed = name.trim();
+	if (!trimmed) throw new Error("Institution name cannot be empty");
+	const existing = db.prepare(`SELECT InstID FROM AcademicInst WHERE lower(InstitutionName) = lower(?)`).get(trimmed);
+	if (existing) return existing.InstID;
+	return db.prepare(`INSERT INTO AcademicInst (InstitutionName, Link) VALUES (?, '')`).run(trimmed).lastInsertRowid;
+}
+
+// Find Organization by name (case-insensitive), or create it. Returns OrgID.
+function findOrCreateOrganization(name) {
+	const db = getDb();
+	const trimmed = name.trim();
+	if (!trimmed) throw new Error("Organization name cannot be empty");
+	const existing = db.prepare(`SELECT OrgID FROM Organization WHERE lower(OrgName) = lower(?)`).get(trimmed);
+	if (existing) return existing.OrgID;
+	return db.prepare(`INSERT INTO Organization (OrgName) VALUES (?)`).run(trimmed).lastInsertRowid;
+}
+
 // ── LEGACY HELPERS (kept for IPC compatibility) ───────────────────
 function addCategory(data) {
 	return getDb().prepare("INSERT INTO Category (CategoryName,SVGPath,HexCode) VALUES (@CategoryName,@SVGPath,@HexCode)").run(data).lastInsertRowid;
@@ -145,4 +167,6 @@ module.exports = {
 	addPronoun,
 	addOrg,
 	addInstitution,
+	findOrCreateInstitution,
+	findOrCreateOrganization,
 };
