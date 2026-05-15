@@ -68,4 +68,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   lookupFindOrCreateInstitution:  (name) => ipcRenderer.invoke('lookup:findOrCreateInstitution', name),
   lookupFindOrCreateOrganization: (name) => ipcRenderer.invoke('lookup:findOrCreateOrganization', name),
+
+  mediaPick:    ()                   => ipcRenderer.invoke('media:pick'),
+  mediaSetRole: (pid, mid, role)     => ipcRenderer.invoke('media:setRole', pid, mid, role),
 });

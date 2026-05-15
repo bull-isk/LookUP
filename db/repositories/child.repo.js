@@ -120,37 +120,45 @@ function deleteEdu(id) {
 // data: { PersonID, OrgID, Role, StartYear, EndYear, IsPresent }
 
 function createOrg(data) {
-  const id = getDb().prepare(`
+	const id = getDb()
+		.prepare(
+			`
     INSERT INTO OrgHistory (PersonID, OrgID, Role, StartYear, EndYear, IsPresent)
     VALUES (@PersonID, @OrgID, @Role, @StartYear, @EndYear, @IsPresent)
-  `).run({
-    PersonID:  data.PersonID,
-    OrgID:     data.OrgID     || null,
-    Role:      data.Role      || null,
-    StartYear: data.StartYear ? Number(data.StartYear) : null,
-    EndYear:   data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
-    IsPresent: data.IsPresent ? 1 : 0,
-  }).lastInsertRowid;
-  touchLastUpdated(data.PersonID);
-  return id;
+  `,
+		)
+		.run({
+			PersonID: data.PersonID,
+			OrgID: data.OrgID || null,
+			Role: data.Role || null,
+			StartYear: data.StartYear ? Number(data.StartYear) : null,
+			EndYear: data.IsPresent ? null : data.EndYear ? Number(data.EndYear) : null,
+			IsPresent: data.IsPresent ? 1 : 0,
+		}).lastInsertRowid;
+	touchLastUpdated(data.PersonID);
+	return id;
 }
 
 function updateOrg(id, data) {
-  const o = getDb().prepare(`SELECT PersonID FROM OrgHistory WHERE OrgHistID=?`).get(id);
-  getDb().prepare(`
+	const o = getDb().prepare(`SELECT PersonID FROM OrgHistory WHERE OrgHistID=?`).get(id);
+	getDb()
+		.prepare(
+			`
     UPDATE OrgHistory
     SET OrgID=@OrgID, Role=@Role,
         StartYear=@StartYear, EndYear=@EndYear, IsPresent=@IsPresent
     WHERE OrgHistID=@id
-  `).run({
-    id,
-    OrgID:     data.OrgID     || null,
-    Role:      data.Role      || null,
-    StartYear: data.StartYear ? Number(data.StartYear) : null,
-    EndYear:   data.IsPresent ? null : (data.EndYear ? Number(data.EndYear) : null),
-    IsPresent: data.IsPresent ? 1 : 0,
-  });
-  if (o) touchLastUpdated(o.PersonID);
+  `,
+		)
+		.run({
+			id,
+			OrgID: data.OrgID || null,
+			Role: data.Role || null,
+			StartYear: data.StartYear ? Number(data.StartYear) : null,
+			EndYear: data.IsPresent ? null : data.EndYear ? Number(data.EndYear) : null,
+			IsPresent: data.IsPresent ? 1 : 0,
+		});
+	if (o) touchLastUpdated(o.PersonID);
 }
 
 function deleteOrg(id) {
@@ -178,19 +186,76 @@ function deleteSocial(id) {
 }
 
 // ── MEDIA ────────────────────────────────────────────────────────
+
+// Create a media row with Base64 data.
+// data: { FilePath (filename for display), Date, Data (base64 dataUri) }
 function createMedia(data) {
-	return getDb().prepare(`INSERT INTO Media (FilePath,Date) VALUES (@FilePath,@Date)`).run(data).lastInsertRowid;
+	return getDb()
+		.prepare(`INSERT INTO Media (FilePath, Date, Data) VALUES (@FilePath, @Date, @Data)`)
+		.run({
+			FilePath: data.FilePath || "",
+			Date: data.Date || null,
+			Data: data.Data || null,
+		}).lastInsertRowid;
 }
-function linkMedia(personId, mediaId) {
-	try {
-		getDb().prepare(`INSERT INTO PersonMedia (PersonID,MediaID) VALUES (?,?)`).run(personId, mediaId);
-		touchLastUpdated(personId);
-	} catch (e) {
-		/* already linked */
+
+// Link a media item to a person, with an optional role.
+// Role: 'primary' | 'secondary' | null
+// Enforces: only 1 primary per person, max 2 secondary per person.
+function linkMedia(personId, mediaId, role = null) {
+	const db = getDb();
+
+	if (role === "primary") {
+		// Clear any existing primary for this person
+		db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND Role = 'primary'`).run(personId);
 	}
+
+	if (role === "secondary") {
+		// Count existing secondary slots
+		const count = db.prepare(`SELECT COUNT(*) as n FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary'`).get(personId).n;
+		if (count >= 2) {
+			// Evict the oldest secondary (lowest MediaID)
+			const oldest = db.prepare(`SELECT MediaID FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' ORDER BY MediaID ASC LIMIT 1`).get(personId);
+			if (oldest) {
+				db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND MediaID = ?`).run(personId, oldest.MediaID);
+			}
+		}
+	}
+
+	try {
+		db.prepare(`INSERT INTO PersonMedia (PersonID, MediaID, Role) VALUES (?, ?, ?)`).run(personId, mediaId, role);
+	} catch {
+		// Already linked — just update the role
+		db.prepare(`UPDATE PersonMedia SET Role = ? WHERE PersonID = ? AND MediaID = ?`).run(role, personId, mediaId);
+	}
+
+	touchLastUpdated(personId);
 }
+
+// Set or clear the role of an already-linked media item.
+function setMediaRole(personId, mediaId, role) {
+	const db = getDb();
+
+	if (role === "primary") {
+		db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND Role = 'primary'`).run(personId);
+	}
+
+	if (role === "secondary") {
+		const count = db.prepare(`SELECT COUNT(*) as n FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' AND MediaID != ?`).get(personId, mediaId).n;
+		if (count >= 2) {
+			const oldest = db.prepare(`SELECT MediaID FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' AND MediaID != ? ORDER BY MediaID ASC LIMIT 1`).get(personId, mediaId);
+			if (oldest) {
+				db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND MediaID = ?`).run(personId, oldest.MediaID);
+			}
+		}
+	}
+
+	db.prepare(`UPDATE PersonMedia SET Role = ? WHERE PersonID = ? AND MediaID = ?`).run(role, personId, mediaId);
+	touchLastUpdated(personId);
+}
+
 function unlinkMedia(personId, mediaId) {
-	getDb().prepare(`DELETE FROM PersonMedia WHERE PersonID=? AND MediaID=?`).run(personId, mediaId);
+	getDb().prepare(`DELETE FROM PersonMedia WHERE PersonID = ? AND MediaID = ?`).run(personId, mediaId);
 	touchLastUpdated(personId);
 }
 
@@ -215,5 +280,6 @@ module.exports = {
 	deleteSocial,
 	createMedia,
 	linkMedia,
+	setMediaRole,
 	unlinkMedia,
 };

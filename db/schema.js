@@ -167,6 +167,8 @@ function initSchema() {
 		);
 	`);
 
+	runMigrations(db);
+
 	seedLookups(db);
 
 	// Prune orphan tags on every startup
@@ -251,6 +253,27 @@ function seedLookups(db) {
 		];
 		pts.forEach((p) => ins.run({ SubSpecificsID: subMap[p.SubName], PointName: p.PointName }));
 		console.log("[DB] Seeded SpecificsPts");
+	}
+}
+
+function runMigrations(db) {
+	const hasColumn = (table, col) =>
+		db
+			.prepare(`PRAGMA table_info(${table})`)
+			.all()
+			.some((c) => c.name === col);
+
+	// Media: store Base64 image data directly in the DB
+	if (!hasColumn("Media", "Data")) {
+		db.exec(`ALTER TABLE Media ADD COLUMN Data TEXT`);
+		console.log("[DB] Migration: added Media.Data");
+	}
+
+	// PersonMedia: role tracks which image is primary/secondary profile picture
+	// Values: 'primary' | 'secondary' | NULL (general gallery image)
+	if (!hasColumn("PersonMedia", "Role")) {
+		db.exec(`ALTER TABLE PersonMedia ADD COLUMN Role TEXT`);
+		console.log("[DB] Migration: added PersonMedia.Role");
 	}
 }
 

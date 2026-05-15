@@ -35,6 +35,7 @@ import PronounInput from "../components/PronounInput";
 import CategoryInput from "../components/CategoryInput";
 import SocialChip from "../components/SocialChip";
 import QuickAdd from "../components/QuickAdd";
+import MediaCard from "../components/MediaCard";
 
 const api = window.electronAPI;
 
@@ -726,6 +727,46 @@ function PlatformSelect({ platforms, value, onChange, onAddNew }) {
 	);
 }
 
+// Profile picture strip — shown in header
+// primary: large circle, secondary: two smaller circles
+function ProfilePictures({ media, personId, onReload }) {
+	const primary = media.find((m) => m.Role === "primary");
+	const secondaries = media.filter((m) => m.Role === "secondary");
+
+	const circle = (m, size, borderColor) => (
+		<div
+			key={m ? m.MediaID : "empty"}
+			style={{
+				width: size,
+				height: size,
+				borderRadius: "50%",
+				border: `2px solid ${borderColor}`,
+				overflow: "hidden",
+				flexShrink: 0,
+				background: "var(--color-surface-3)",
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+			}}
+		>
+			{m?.Data ? <img src={m.Data} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "var(--color-text-faint)", fontSize: size * 0.35 }}>?</span>}
+		</div>
+	);
+
+	return (
+		<div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginRight: 12 }}>
+			{/* Primary — 64px */}
+			{circle(primary, 64, "var(--color-primary)")}
+
+			{/* Secondary — two 36px circles stacked */}
+			<div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+				{circle(secondaries[0] || null, 36, "var(--color-accent)")}
+				{circle(secondaries[1] || null, 36, "var(--color-accent)")}
+			</div>
+		</div>
+	);
+}
+
 // ════════════════════════════════════════════════════════════════
 export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 	const [data, setData] = useState(null);
@@ -1337,51 +1378,110 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 	);
 
 	// ── MEDIA TAB ─────────────────────────────────────────────────
-	const renderMedia = () => (
-		<div>
-			<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-				<div style={secTitle}>Media</div>
-				<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("media")}>
-					+ Add
-				</button>
-			</div>
-			{isAdding("media") && (
-				<PopupForm
-					title="Add Media File"
-					fields={[
-						{ key: "FilePath", label: "File Path" },
-						{ key: "Date", label: "Date", inputType: "date" },
-					]}
-					onSave={async (v) => {
-						const mid = await mediaCreate({ FilePath: v.FilePath, Date: v.Date || null });
-						await mediaLink(personId, mid);
-						reload();
-					}}
-					onClose={stopAdding}
-				/>
-			)}
-			<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8 }}>
-				{media.map((m) => (
-					<HoverRow
-						key={m.MediaID}
-						onDelete={async () => {
-							await mediaUnlink(personId, m.MediaID);
-							reload();
-						}}
-					>
-						<div style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: 8 }}>
-							<div style={{ fontSize: "var(--font-size-xs)", wordBreak: "break-all", color: "var(--color-text-muted)", marginBottom: 4 }}>
-								{m.FilePath.split("/").pop() || m.FilePath}
+	const renderMedia = () => {
+		const handlePick = async () => {
+			const picked = await window.electronAPI.mediaPick();
+			if (!picked?.length) return;
+			const date = new Date().toISOString().slice(0, 10);
+			for (const { filename, dataUri } of picked) {
+				const mid = await mediaCreate({ FilePath: filename, Date: date, Data: dataUri });
+				await mediaLink(personId, mid);
+			}
+			reload();
+		};
+
+		const primary = media.find((m) => m.Role === "primary");
+		const secondaries = media.filter((m) => m.Role === "secondary");
+		const rest = media.filter((m) => !m.Role);
+
+		return (
+			<div>
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+					<div style={secTitle}>Media</div>
+					<button onClick={handlePick} style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }}>
+						+ Add Images
+					</button>
+				</div>
+
+				{media.length === 0 ? (
+					<div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No images yet. Click "+ Add Images" to pick from your files.</div>
+				) : (
+					<>
+						{/* Profile pictures section */}
+						{(primary || secondaries.length > 0) && (
+							<div style={{ marginBottom: 16 }}>
+								<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Profile Pictures</div>
+								<div style={{ display: "flex", gap: 10 }}>
+									{/* Primary slot */}
+									<div style={{ width: 100 }}>
+										<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginBottom: 4 }}>★ Main</div>
+										{primary ? (
+											<MediaCard m={primary} personId={personId} onReload={reload} />
+										) : (
+											<div
+												style={{
+													width: "100%",
+													aspectRatio: "1",
+													border: "1px dashed var(--color-border)",
+													borderRadius: "var(--radius-md)",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+													color: "var(--color-text-faint)",
+													fontSize: "var(--font-size-xs)",
+													textAlign: "center",
+													padding: 8,
+												}}
+											>
+												No main photo
+											</div>
+										)}
+									</div>
+									{/* Secondary slots */}
+									<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+										<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginBottom: 0 }}>◆ Secondary</div>
+										{[0, 1].map((i) => (
+											<div key={i} style={{ width: 80 }}>
+												{secondaries[i] ? (
+													<MediaCard m={secondaries[i]} personId={personId} onReload={reload} />
+												) : (
+													<div
+														style={{
+															width: "100%",
+															aspectRatio: "1",
+															border: "1px dashed var(--color-border)",
+															borderRadius: "var(--radius-md)",
+															display: "flex",
+															alignItems: "center",
+															justifyContent: "center",
+															color: "var(--color-text-faint)",
+															fontSize: "var(--font-size-xs)",
+														}}
+													>
+														—
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+								</div>
 							</div>
-							{m.Date && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)" }}>{m.Date}</div>}
-							<div style={{ fontSize: 9, color: "var(--color-text-faint)", wordBreak: "break-all", marginTop: 2 }}>{m.FilePath}</div>
+						)}
+
+						{/* All images grid */}
+						<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+							All Images — hover to assign role
 						</div>
-					</HoverRow>
-				))}
+						<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+							{media.map((m) => (
+								<MediaCard key={m.MediaID} m={m} personId={personId} onReload={reload} />
+							))}
+						</div>
+					</>
+				)}
 			</div>
-			{media.length === 0 && !isAdding("media") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No media files.</div>}
-		</div>
-	);
+		);
+	};
 
 	// ── MAIN RENDER ───────────────────────────────────────────────
 	return (
@@ -1524,44 +1624,49 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 
 			{/* ── HEADER ─────────────────────────────────────────── */}
 			<div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-				<div>
-					<div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-						<h2 style={{ margin: 0, color: "var(--color-text)", fontSize: 20 }}>{person.FullName}</h2>
-						{person.Nickname && <span style={{ color: "var(--color-text-muted)", fontSize: 14 }}>({person.Nickname})</span>}
-						{person.CategoryName && (
-							<span
-								style={{
-									fontSize: "var(--font-size-xs)",
-									padding: "2px 8px",
-									borderRadius: "var(--radius-sm)",
-									background: "var(--color-active)",
-									color: "var(--color-text-on-primary)",
-									fontWeight: "bold",
-								}}
-							>
-								{person.CategoryName}
-							</span>
-						)}
-					</div>
-					{pronouns.length > 0 && (
-						<div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
-							{pronouns.map((p) => (
+				{/* Left side: profile pictures + name */}
+				<div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
+					<ProfilePictures media={media} personId={personId} onReload={reload} />
+
+					<div>
+						<div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+							<h2 style={{ margin: 0, color: "var(--color-text)", fontSize: 20 }}>{person.FullName}</h2>
+							{person.Nickname && <span style={{ color: "var(--color-text-muted)", fontSize: 14 }}>({person.Nickname})</span>}
+							{person.CategoryName && (
 								<span
-									key={p.PronounsID}
 									style={{
 										fontSize: "var(--font-size-xs)",
-										padding: "1px 6px",
+										padding: "2px 8px",
 										borderRadius: "var(--radius-sm)",
-										background: "var(--color-surface-3)",
-										color: "var(--color-text-muted)",
-										border: "1px solid var(--color-border)",
+										background: "var(--color-active)",
+										color: "var(--color-text-on-primary)",
+										fontWeight: "bold",
 									}}
 								>
-									{p.Pronouns}
+									{person.CategoryName}
 								</span>
-							))}
+							)}
 						</div>
-					)}
+						{pronouns.length > 0 && (
+							<div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
+								{pronouns.map((p) => (
+									<span
+										key={p.PronounsID}
+										style={{
+											fontSize: "var(--font-size-xs)",
+											padding: "1px 6px",
+											borderRadius: "var(--radius-sm)",
+											background: "var(--color-surface-3)",
+											color: "var(--color-text-muted)",
+											border: "1px solid var(--color-border)",
+										}}
+									>
+										{p.Pronouns}
+									</span>
+								))}
+							</div>
+						)}
+					</div>
 				</div>
 
 				{/* ⚙ Settings */}

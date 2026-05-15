@@ -146,24 +146,31 @@ function getFullPerson(id) {
 			.all(id),
 		specifics: db
 			.prepare(
-				`
-      SELECT s.SpecificsID, s.SpecificNote, sp.PointName, ss.SubName
-      FROM Specifics s
-      JOIN SpecificsPts sp ON s.PointID = sp.PointID
-      JOIN SubSpecifics ss ON sp.SubSpecificsID = ss.SubSpecificsID
-      WHERE s.PersonID = ?
-      ORDER BY ss.SubName, sp.PointName
-    `,
+          `
+        SELECT s.SpecificsID, s.SpecificNote, sp.PointName, ss.SubName
+        FROM Specifics s
+        JOIN SpecificsPts sp ON s.PointID = sp.PointID
+        JOIN SubSpecifics ss ON sp.SubSpecificsID = ss.SubSpecificsID
+        WHERE s.PersonID = ?
+        ORDER BY ss.SubName, sp.PointName
+      `,
 			)
 			.all(id),
 		media: db
 			.prepare(
-				`
-      SELECT m.MediaID, m.FilePath, m.Date
-      FROM Media m
-      JOIN PersonMedia pm ON m.MediaID = pm.MediaID
-      WHERE pm.PersonID = ?
-    `,
+              `
+        SELECT m.MediaID, m.FilePath, m.Date, m.Data, pm.Role
+        FROM Media m
+        JOIN PersonMedia pm ON m.MediaID = pm.MediaID
+        WHERE pm.PersonID = ?
+        ORDER BY
+          CASE pm.Role
+            WHEN 'primary'   THEN 0
+            WHEN 'secondary' THEN 1
+            ELSE                  2
+          END,
+          m.MediaID DESC
+      `,
 			)
 			.all(id),
 	};
