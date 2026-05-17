@@ -1,9 +1,7 @@
 // renderer/src/components/MediaCard.jsx
-// Displays one stored image. Shows role badge. Hover reveals role controls + delete.
-// Props:
-//   m:         { MediaID, FilePath, Date, Data, Role }
-//   personId:  number
-//   onReload:  () => void
+// Displays one stored image with title, date, role badge.
+// Click image → lightbox. Hover → delete button overlay.
+// Role assignment is handled in the Header Edit modal, not here.
 
 import { useState } from "react";
 
@@ -16,11 +14,6 @@ export default function MediaCard({ m, personId, onReload }) {
 
 	const hasImage = m.Data && m.Data.startsWith("data:");
 	const api = window.electronAPI;
-
-	const setRole = async (role) => {
-		await api.mediaSetRole(personId, m.MediaID, role === m.Role ? null : role);
-		onReload();
-	};
 
 	const remove = async () => {
 		await api.mediaUnlink(personId, m.MediaID);
@@ -40,9 +33,9 @@ export default function MediaCard({ m, personId, onReload }) {
 					background: "var(--color-surface-2)",
 				}}
 			>
-				{/* Image */}
+				{/* Image — click to open lightbox */}
 				{hasImage ? (
-					<img src={m.Data} alt={m.FilePath} onClick={() => setLightbox(true)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", cursor: "pointer" }} />
+					<img src={m.Data} alt={m.FilePath} onClick={() => setLightbox(true)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block", cursor: "zoom-in" }} />
 				) : (
 					<div
 						style={{
@@ -76,90 +69,39 @@ export default function MediaCard({ m, personId, onReload }) {
 							padding: "2px 5px",
 							borderRadius: "var(--radius-sm)",
 							letterSpacing: 0.5,
+							pointerEvents: "none",
 						}}
 					>
 						{ROLE_LABELS[m.Role]}
 					</div>
 				)}
 
-				{/* Hover overlay: role buttons + delete */}
+				{/* Hover: delete button only */}
 				{hovered && (
-					<div
+					<button
+						onClick={remove}
+						title="Remove image"
 						style={{
 							position: "absolute",
-							inset: 0,
-							background: "rgba(0,0,0,0.55)",
-							display: "flex",
-							flexDirection: "column",
-							alignItems: "center",
-							justifyContent: "center",
-							gap: 6,
+							top: 5,
+							right: 5,
+							background: "rgba(0,0,0,0.65)",
+							color: "#fca5a5",
+							border: "1px solid #ef4444",
+							borderRadius: "var(--radius-sm)",
+							padding: "2px 8px",
+							cursor: "pointer",
+							fontSize: 11,
+							boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
 						}}
 					>
-						<button
-							onClick={() => setRole("primary")}
-							style={{
-								width: "80%",
-								padding: "4px 0",
-								background: m.Role === "primary" ? "#6366f1" : "rgba(99,102,241,0.35)",
-								color: "#fff",
-								border: "1px solid #6366f1",
-								borderRadius: "var(--radius-sm)",
-								cursor: "pointer",
-								fontSize: 11,
-								fontWeight: "bold",
-							}}
-						>
-							{m.Role === "primary" ? "★ Main (click to unset)" : "★ Set as Main"}
-						</button>
-
-						<button
-							onClick={() => setRole("secondary")}
-							style={{
-								width: "80%",
-								padding: "4px 0",
-								background: m.Role === "secondary" ? "#818cf8" : "rgba(129,140,248,0.25)",
-								color: "#fff",
-								border: "1px solid #818cf8",
-								borderRadius: "var(--radius-sm)",
-								cursor: "pointer",
-								fontSize: 11,
-							}}
-						>
-							{m.Role === "secondary" ? "◆ Secondary (unset)" : "◆ Set as Secondary"}
-						</button>
-
-						<button
-							onClick={remove}
-							style={{
-								width: "80%",
-								padding: "4px 0",
-								background: "rgba(239,68,68,0.25)",
-								color: "#fca5a5",
-								border: "1px solid #ef4444",
-								borderRadius: "var(--radius-sm)",
-								cursor: "pointer",
-								fontSize: 11,
-							}}
-						>
-							✕ Remove
-						</button>
-					</div>
+						✕
+					</button>
 				)}
 
 				{/* Caption */}
 				<div style={{ padding: "5px 7px" }}>
-					<div
-						style={{
-							fontSize: "var(--font-size-xs)",
-							color: "var(--color-text-muted)",
-							whiteSpace: "nowrap",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-						}}
-					>
-						{m.FilePath}
-					</div>
+					<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.FilePath || "—"}</div>
 					{m.Date && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginTop: 1 }}>{m.Date}</div>}
 				</div>
 			</div>
@@ -171,8 +113,8 @@ export default function MediaCard({ m, personId, onReload }) {
 					style={{
 						position: "fixed",
 						inset: 0,
-						background: "rgba(0,0,0,0.88)",
-						zIndex: 1000,
+						background: "rgba(0,0,0,0.92)",
+						zIndex: 2000,
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
@@ -182,11 +124,11 @@ export default function MediaCard({ m, personId, onReload }) {
 						src={m.Data}
 						alt={m.FilePath}
 						style={{
-							maxWidth: "90vw",
-							maxHeight: "90vh",
+							maxWidth: "92vw",
+							maxHeight: "92vh",
 							objectFit: "contain",
 							borderRadius: "var(--radius-md)",
-							boxShadow: "0 8px 40px rgba(0,0,0,0.8)",
+							boxShadow: "0 8px 48px rgba(0,0,0,0.9)",
 						}}
 					/>
 					<div
@@ -198,6 +140,7 @@ export default function MediaCard({ m, personId, onReload }) {
 							color: "rgba(255,255,255,0.7)",
 							fontSize: "var(--font-size-sm)",
 							textAlign: "center",
+							pointerEvents: "none",
 						}}
 					>
 						{m.FilePath}

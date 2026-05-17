@@ -1,5 +1,5 @@
 // renderer/src/pages/PersonDetail.jsx
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
 	personFull,
 	personDelete,
@@ -727,6 +727,146 @@ function PlatformSelect({ platforms, value, onChange, onAddNew }) {
 	);
 }
 
+// ── MediaAddForm — inline form for adding an image ───────────────
+// Used inside the Media tab. Separate component so it can have its
+// own useState (drag, preview) without putting hooks in renderMedia().
+function MediaAddForm({ personId, onSaved, onCancel }) {
+	const [preview, setPreview] = React.useState(null);
+	const [filename, setFilename] = React.useState("");
+	const [title, setTitle] = React.useState("");
+	const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
+	const [dragOver, setDragOver] = React.useState(false);
+	const [saving, setSaving] = React.useState(false);
+	const fileRef = React.useRef(null);
+	const api = window.electronAPI;
+
+	const readFile = (file) => {
+		if (!file || !file.type.startsWith("image/")) return;
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			setPreview(e.target.result);
+			setFilename(file.name);
+		};
+		reader.readAsDataURL(file);
+	};
+
+	const handleBrowse = async () => {
+		const picked = await api.mediaPick();
+		if (!picked?.length) return;
+		setPreview(picked[0].dataUri);
+		setFilename(picked[0].filename);
+	};
+
+	const handleSave = async () => {
+		if (!preview) {
+			alert("Please select an image first.");
+			return;
+		}
+		setSaving(true);
+		try {
+			const mid = await api.mediaCreate({
+				FilePath: title.trim() || filename,
+				Date: date || new Date().toISOString().slice(0, 10),
+				Data: preview,
+			});
+			await api.mediaLink(personId, mid);
+			onSaved();
+		} catch (e) {
+			alert(e.message || "Failed to save image");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const iStyle = {
+		width: "100%",
+		padding: "5px 8px",
+		border: "1px solid var(--color-border)",
+		borderRadius: "var(--radius-sm)",
+		background: "var(--color-surface-2)",
+		color: "var(--color-text)",
+		marginTop: 4,
+	};
+	const lbl = { display: "block", marginBottom: 10, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" };
+
+	return (
+		<div style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: 16, marginBottom: 16, background: "var(--color-surface-2)" }}>
+			{/* Drop zone */}
+			<div
+				onDragOver={(e) => {
+					e.preventDefault();
+					setDragOver(true);
+				}}
+				onDragLeave={() => setDragOver(false)}
+				onDrop={(e) => {
+					e.preventDefault();
+					setDragOver(false);
+					readFile(e.dataTransfer.files[0]);
+				}}
+				onClick={() => fileRef.current?.click()}
+				style={{
+					border: `2px dashed ${dragOver ? "var(--color-accent)" : "var(--color-border)"}`,
+					borderRadius: "var(--radius-md)",
+					background: dragOver ? "var(--color-hover)" : "var(--color-surface)",
+					padding: 20,
+					textAlign: "center",
+					cursor: "pointer",
+					minHeight: 130,
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
+					justifyContent: "center",
+					gap: 8,
+					marginBottom: 12,
+					transition: "border-color 0.15s, background 0.15s",
+				}}
+			>
+				{preview ? (
+					<img src={preview} alt="preview" style={{ maxHeight: 110, maxWidth: "100%", objectFit: "contain", borderRadius: "var(--radius-sm)" }} />
+				) : (
+					<>
+						<div style={{ fontSize: 32, opacity: 0.4 }}>🖼</div>
+						<div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Drop image here, or click to browse</div>
+					</>
+				)}
+			</div>
+			<input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => readFile(e.target.files[0])} />
+
+			<label style={lbl}>
+				Title
+				<input style={iStyle} placeholder={filename || "Image title…"} value={title} onChange={(e) => setTitle(e.target.value)} />
+			</label>
+			<label style={lbl}>
+				Date
+				<input type="date" style={iStyle} value={date} onChange={(e) => setDate(e.target.value)} />
+			</label>
+
+			<div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+				<button
+					onClick={onCancel}
+					style={{
+						padding: "4px 12px",
+						background: "transparent",
+						border: "1px solid var(--color-border)",
+						borderRadius: "var(--radius-sm)",
+						color: "var(--color-text-muted)",
+						cursor: "pointer",
+					}}
+				>
+					Cancel
+				</button>
+				<button
+					onClick={handleSave}
+					disabled={saving}
+					style={{ padding: "4px 12px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}
+				>
+					{saving ? "Saving…" : "Save Image"}
+				</button>
+			</div>
+		</div>
+	);
+}
+
 // Profile picture strip — shown in header
 // primary: large circle, secondary: two smaller circles
 function ProfilePictures({ media, personId, onReload }) {
@@ -1379,105 +1519,38 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 
 	// ── MEDIA TAB ─────────────────────────────────────────────────
 	const renderMedia = () => {
-		const handlePick = async () => {
-			const picked = await window.electronAPI.mediaPick();
-			if (!picked?.length) return;
-			const date = new Date().toISOString().slice(0, 10);
-			for (const { filename, dataUri } of picked) {
-				const mid = await mediaCreate({ FilePath: filename, Date: date, Data: dataUri });
-				await mediaLink(personId, mid);
-			}
-			reload();
-		};
-
-		const primary = media.find((m) => m.Role === "primary");
-		const secondaries = media.filter((m) => m.Role === "secondary");
-		const rest = media.filter((m) => !m.Role);
-
 		return (
 			<div>
 				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
 					<div style={secTitle}>Media</div>
-					<button onClick={handlePick} style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }}>
-						+ Add Images
-					</button>
+					{!isAdding("media") && (
+						<button onClick={() => setAdding("media")} style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }}>
+							+ Add Image
+						</button>
+					)}
 				</div>
 
-				{media.length === 0 ? (
-					<div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No images yet. Click "+ Add Images" to pick from your files.</div>
-				) : (
-					<>
-						{/* Profile pictures section */}
-						{(primary || secondaries.length > 0) && (
-							<div style={{ marginBottom: 16 }}>
-								<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Profile Pictures</div>
-								<div style={{ display: "flex", gap: 10 }}>
-									{/* Primary slot */}
-									<div style={{ width: 100 }}>
-										<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginBottom: 4 }}>★ Main</div>
-										{primary ? (
-											<MediaCard m={primary} personId={personId} onReload={reload} />
-										) : (
-											<div
-												style={{
-													width: "100%",
-													aspectRatio: "1",
-													border: "1px dashed var(--color-border)",
-													borderRadius: "var(--radius-md)",
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "center",
-													color: "var(--color-text-faint)",
-													fontSize: "var(--font-size-xs)",
-													textAlign: "center",
-													padding: 8,
-												}}
-											>
-												No main photo
-											</div>
-										)}
-									</div>
-									{/* Secondary slots */}
-									<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-										<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginBottom: 0 }}>◆ Secondary</div>
-										{[0, 1].map((i) => (
-											<div key={i} style={{ width: 80 }}>
-												{secondaries[i] ? (
-													<MediaCard m={secondaries[i]} personId={personId} onReload={reload} />
-												) : (
-													<div
-														style={{
-															width: "100%",
-															aspectRatio: "1",
-															border: "1px dashed var(--color-border)",
-															borderRadius: "var(--radius-md)",
-															display: "flex",
-															alignItems: "center",
-															justifyContent: "center",
-															color: "var(--color-text-faint)",
-															fontSize: "var(--font-size-xs)",
-														}}
-													>
-														—
-													</div>
-												)}
-											</div>
-										))}
-									</div>
-								</div>
-							</div>
-						)}
+				{/* Add image form */}
+				{isAdding("media") && (
+					<MediaAddForm
+						personId={personId}
+						onSaved={() => {
+							stopAdding();
+							reload();
+						}}
+						onCancel={stopAdding}
+					/>
+				)}
 
-						{/* All images grid */}
-						<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-							All Images — hover to assign role
-						</div>
-						<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
-							{media.map((m) => (
-								<MediaCard key={m.MediaID} m={m} personId={personId} onReload={reload} />
-							))}
-						</div>
-					</>
+				{/* Gallery grid */}
+				{media.length === 0 && !isAdding("media") ? (
+					<div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No images yet. Click "+ Add Image" to get started.</div>
+				) : (
+					<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+						{media.map((m) => (
+							<MediaCard key={m.MediaID} m={m} personId={personId} onReload={reload} />
+						))}
+					</div>
 				)}
 			</div>
 		);
@@ -1538,6 +1611,103 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 								return id;
 							}}
 						/>
+
+						{/* ── Profile picture assignment ── */}
+						{media.length > 0 && (
+							<div style={{ marginTop: 18 }}>
+								<div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)", marginBottom: 8 }}>Profile Pictures</div>
+								<div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+									{media.map((m) => {
+										const isMain = m.Role === "primary";
+										const isSec = m.Role === "secondary";
+										return (
+											<div key={m.MediaID} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+												<div
+													style={{
+														width: 60,
+														height: 60,
+														borderRadius: "var(--radius-sm)",
+														overflow: "hidden",
+														border: `2px solid ${isMain ? "#6366f1" : isSec ? "#818cf8" : "var(--color-border)"}`,
+													}}
+												>
+													{m.Data ? (
+														<img src={m.Data} alt={m.FilePath} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+													) : (
+														<div
+															style={{
+																width: "100%",
+																height: "100%",
+																background: "var(--color-surface-3)",
+																display: "flex",
+																alignItems: "center",
+																justifyContent: "center",
+																color: "var(--color-text-faint)",
+																fontSize: 10,
+															}}
+														>
+															?
+														</div>
+													)}
+												</div>
+												<div style={{ display: "flex", gap: 3 }}>
+													<button
+														onClick={async () => {
+															await api.mediaSetRole(personId, m.MediaID, isMain ? null : "primary");
+															reload();
+														}}
+														title={isMain ? "Unset main" : "Set as main photo"}
+														style={{
+															padding: "1px 6px",
+															fontSize: 9,
+															cursor: "pointer",
+															border: "1px solid #6366f1",
+															borderRadius: "var(--radius-sm)",
+															background: isMain ? "#6366f1" : "transparent",
+															color: isMain ? "#fff" : "#818cf8",
+														}}
+													>
+														★
+													</button>
+													<button
+														onClick={async () => {
+															await api.mediaSetRole(personId, m.MediaID, isSec ? null : "secondary");
+															reload();
+														}}
+														title={isSec ? "Unset secondary" : "Set as secondary photo"}
+														style={{
+															padding: "1px 6px",
+															fontSize: 9,
+															cursor: "pointer",
+															border: "1px solid #818cf8",
+															borderRadius: "var(--radius-sm)",
+															background: isSec ? "#818cf8" : "transparent",
+															color: isSec ? "#fff" : "#818cf8",
+														}}
+													>
+														◆
+													</button>
+												</div>
+												<div
+													style={{
+														fontSize: 8,
+														color: "var(--color-text-faint)",
+														maxWidth: 60,
+														textAlign: "center",
+														overflow: "hidden",
+														textOverflow: "ellipsis",
+														whiteSpace: "nowrap",
+													}}
+												>
+													{m.FilePath || "—"}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+								<div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", marginTop: 6 }}>★ main · ◆ secondary · click to toggle</div>
+							</div>
+						)}
 					</div>
 					<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
 						<button style={btnG} onClick={() => setSettingsPanel(null)}>

@@ -1,68 +1,154 @@
 // renderer/src/components/QuickAdd.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const api = window.electronAPI;
 
 const PAGES = ["Details", "Text", "Media"];
-
 const SECTIONS = {
 	Details: ["Specifics", "Education", "Organization", "Social Account"],
-	Text: ["Quote", "WordMouth", "Note"],
-	Media: ["Media File"],
+	Text: ["Quote", "He Said / She Said", "Note"],
+	Media: ["Image"],
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+// ── Shared styles matching the app theme ─────────────────────────
+const iStyle = {
+	width: "100%",
+	padding: "5px 8px",
+	border: "1px solid var(--color-border)",
+	borderRadius: "var(--radius-sm)",
+	background: "var(--color-surface-2)",
+	color: "var(--color-text)",
+	marginTop: 4,
+	fontFamily: "var(--font-mono)",
+	fontSize: "var(--font-size-base)",
+};
+const lbl = {
+	display: "block",
+	marginBottom: 10,
+	color: "var(--color-text-muted)",
+	fontSize: "var(--font-size-sm)",
+};
+const btnP = {
+	padding: "5px 16px",
+	background: "var(--color-primary)",
+	color: "#fff",
+	border: "none",
+	borderRadius: "var(--radius-sm)",
+	cursor: "pointer",
+	fontFamily: "var(--font-mono)",
+};
+const btnG = {
+	padding: "5px 12px",
+	background: "transparent",
+	border: "1px solid var(--color-border)",
+	borderRadius: "var(--radius-sm)",
+	color: "var(--color-text-muted)",
+	cursor: "pointer",
+	fontFamily: "var(--font-mono)",
+};
 
 export default function QuickAdd({ person, lookups, specificsTree, onSaved, onClose }) {
 	const [page, setPage] = useState("Details");
 	const [section, setSection] = useState(SECTIONS["Details"][0]);
 	const [form, setForm] = useState({});
 	const [saving, setSaving] = useState(false);
+	// Image state for Media section
+	const [imagePreview, setImagePreview] = useState(null); // dataUri
+	const [imageFilename, setImageFilename] = useState("");
+	const [dragOver, setDragOver] = useState(false);
+	const fileInputRef = useRef(null);
 
-	// Reset section when page changes
 	useEffect(() => {
 		setSection(SECTIONS[page][0]);
 		setForm({});
+		setImagePreview(null);
+		setImageFilename("");
 	}, [page]);
 
 	const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+	// ── Image helpers ───────────────────────────────────────────
+	const readImageFile = (file) => {
+		if (!file || !file.type.startsWith("image/")) return;
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			setImagePreview(e.target.result);
+			setImageFilename(file.name);
+		};
+		reader.readAsDataURL(file);
+	};
+
+	const handleBrowse = async () => {
+		// Use Electron's native picker
+		const picked = await api.mediaPick();
+		if (!picked?.length) return;
+		setImagePreview(picked[0].dataUri);
+		setImageFilename(picked[0].filename);
+	};
+
+	const handleDrop = (e) => {
+		e.preventDefault();
+		setDragOver(false);
+		const file = e.dataTransfer.files[0];
+		readImageFile(file);
+	};
+
+	const handleFileInput = (e) => {
+		readImageFile(e.target.files[0]);
+	};
+
+	// ── Save ────────────────────────────────────────────────────
 	const handleSave = async () => {
 		setSaving(true);
 		try {
 			const pid = person.PersonID;
 			if (section === "Quote") {
-				await api.quoteCreate({ PersonID: pid, Quote: form.Quote || "", Date: form.Date || null });
-			} else if (section === "WordMouth") {
-				await api.wmCreate({ PersonID: pid, SayerID: form.SayerID || null, Quote: form.Quote || "", Date: form.Date || null });
+				await api.quoteCreate({ PersonID: pid, Quote: form.Quote || "", Date: form.Date || today() });
+			} else if (section === "He Said / She Said") {
+				await api.wmCreate({ PersonID: pid, SayerID: form.SayerID || null, Quote: form.Quote || "", Date: form.Date || today() });
 			} else if (section === "Note") {
 				await api.noteCreate({ PersonID: pid, Note: form.Note || "" });
 			} else if (section === "Education") {
+				const instId = form.institutionName?.trim() ? await api.lookupFindOrCreateInstitution(form.institutionName.trim()) : null;
 				await api.eduCreate({
 					PersonID: pid,
-					InstID: Number(form.InstID),
-					EduLevelID: Number(form.EduLevelID),
+					InstID: instId,
+					EduLevelID: form.EduLevelID ? Number(form.EduLevelID) : null,
 					FieldOfStudy: form.FieldOfStudy || "",
+					Faculty: form.Faculty || "",
 					StartYear: form.StartYear ? Number(form.StartYear) : null,
 					EndYear: form.EndYear ? Number(form.EndYear) : null,
+					IsPresent: !!form.IsPresent,
 				});
 			} else if (section === "Organization") {
+				const orgId = form.orgName?.trim() ? await api.lookupFindOrCreateOrganization(form.orgName.trim()) : null;
 				await api.orgCreate({
 					PersonID: pid,
-					OrgID: Number(form.OrgID),
-					Division: form.Division || "",
+					OrgID: orgId,
+					Role: form.Role || "",
 					StartYear: form.StartYear ? Number(form.StartYear) : null,
 					EndYear: form.EndYear ? Number(form.EndYear) : null,
+					IsPresent: !!form.IsPresent,
 				});
 			} else if (section === "Social Account") {
 				await api.socialCreate({ PersonID: pid, PlatformID: Number(form.PlatformID), AccountTag: form.AccountTag || "" });
 			} else if (section === "Specifics") {
-				// find-or-create sub + point, then add value
 				const subId = await api.specificsFindOrCreateSub(form.SubName || "");
 				const ptId = await api.specificsFindOrCreatePoint(subId, form.PointName || "");
 				await api.specificsAddValue({ PersonID: pid, PointID: ptId, SpecificNote: form.SpecificNote || "" });
-			} else if (section === "Media File") {
-				const mid = await api.mediaCreate({ FilePath: form.FilePath || "", Date: form.Date || null });
+			} else if (section === "Image") {
+				if (!imagePreview) {
+					alert("Please select an image first.");
+					setSaving(false);
+					return;
+				}
+				const mid = await api.mediaCreate({
+					FilePath: form.Title?.trim() || imageFilename,
+					Date: form.Date || today(),
+					Data: imagePreview,
+				});
 				await api.mediaLink(pid, mid);
 			}
 			onSaved();
@@ -74,36 +160,35 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 		}
 	};
 
-	const inp = { width: "100%", padding: "4px 6px", border: "1px solid var(--border-primary)", marginTop: 4, color: "var(--text-primary)", background: "var(--bg-primary)" };
-	const lbl = { display: "block", marginBottom: 8, color: "var(--text-secondary)", fontSize: "var(--font-size-sm)" };
-
+	// ── Form renderer ───────────────────────────────────────────
 	const renderForm = () => {
 		const pid = person.PersonID;
-		const persons = lookups.persons.filter((p) => p.PersonID !== pid);
+		const persons = (lookups.persons || []).filter((p) => p.PersonID !== pid);
 
 		if (section === "Quote")
 			return (
 				<>
 					<label style={lbl}>
 						Quote
-						<textarea style={{ ...inp, height: 60 }} onChange={set("Quote")} />
+						<textarea style={{ ...iStyle, height: 70, resize: "vertical" }} onChange={set("Quote")} />
 					</label>
 					<label style={lbl}>
 						Date
-						<input type="date" style={inp} value={form.Date || today()} onChange={set("Date")} />
+						<input type="date" style={iStyle} value={form.Date ?? today()} onChange={set("Date")} />
 					</label>
 				</>
 			);
-		if (section === "WordMouth")
+
+		if (section === "He Said / She Said")
 			return (
 				<>
 					<label style={lbl}>
 						Quote
-						<textarea style={{ ...inp, height: 60 }} onChange={set("Quote")} />
+						<textarea style={{ ...iStyle, height: 70, resize: "vertical" }} onChange={set("Quote")} />
 					</label>
 					<label style={lbl}>
 						Said by (optional)
-						<select style={inp} onChange={set("SayerID")}>
+						<select style={iStyle} onChange={set("SayerID")}>
 							<option value="">— anonymous —</option>
 							{persons.map((p) => (
 								<option key={p.PersonID} value={p.PersonID}>
@@ -114,36 +199,31 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</label>
 					<label style={lbl}>
 						Date
-						<input type="date" style={inp} value={form.Date || today()} onChange={set("Date")} />
+						<input type="date" style={iStyle} value={form.Date ?? today()} onChange={set("Date")} />
 					</label>
 				</>
 			);
+
 		if (section === "Note")
 			return (
 				<label style={lbl}>
 					Note
-					<textarea style={{ ...inp, height: 80 }} onChange={set("Note")} />
+					<textarea style={{ ...iStyle, height: 90, resize: "vertical" }} onChange={set("Note")} />
 				</label>
 			);
+
 		if (section === "Education")
 			return (
 				<>
 					<label style={lbl}>
 						Institution
-						<select style={inp} onChange={set("InstID")}>
-							<option value="">—</option>
-							{lookups.institutions.map((i) => (
-								<option key={i.InstID} value={i.InstID}>
-									{i.InstitutionName}
-								</option>
-							))}
-						</select>
+						<input style={iStyle} placeholder="e.g. University of Brawijaya" onChange={(e) => setForm((f) => ({ ...f, institutionName: e.target.value }))} />
 					</label>
 					<label style={lbl}>
 						Level
-						<select style={inp} onChange={set("EduLevelID")}>
+						<select style={iStyle} onChange={set("EduLevelID")}>
 							<option value="">—</option>
-							{lookups.eduLevels.map((e) => (
+							{(lookups.eduLevels || []).map((e) => (
 								<option key={e.EduLevelID} value={e.EduLevelID}>
 									{e.LevelName}
 								</option>
@@ -152,58 +232,65 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</label>
 					<label style={lbl}>
 						Field of Study
-						<input style={inp} onChange={set("FieldOfStudy")} />
+						<input style={iStyle} onChange={set("FieldOfStudy")} />
+					</label>
+					<label style={lbl}>
+						Faculty
+						<input style={iStyle} onChange={set("Faculty")} />
 					</label>
 					<div style={{ display: "flex", gap: 8 }}>
 						<label style={{ ...lbl, flex: 1 }}>
 							Start Year
-							<input type="number" style={inp} onChange={set("StartYear")} />
+							<input type="number" style={iStyle} onChange={set("StartYear")} />
 						</label>
 						<label style={{ ...lbl, flex: 1 }}>
 							End Year
-							<input type="number" style={inp} onChange={set("EndYear")} />
+							<input type="number" style={iStyle} onChange={set("EndYear")} />
 						</label>
 					</div>
+					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8 }}>
+						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} />
+						Currently enrolled
+					</label>
 				</>
 			);
+
 		if (section === "Organization")
 			return (
 				<>
 					<label style={lbl}>
 						Organization
-						<select style={inp} onChange={set("OrgID")}>
-							<option value="">—</option>
-							{lookups.orgs.map((o) => (
-								<option key={o.OrgID} value={o.OrgID}>
-									{o.OrgName}
-								</option>
-							))}
-						</select>
+						<input style={iStyle} placeholder="e.g. LPM Display" onChange={(e) => setForm((f) => ({ ...f, orgName: e.target.value }))} />
 					</label>
 					<label style={lbl}>
-						Division
-						<input style={inp} onChange={set("Division")} />
+						Role / Division
+						<input style={iStyle} onChange={set("Role")} />
 					</label>
 					<div style={{ display: "flex", gap: 8 }}>
 						<label style={{ ...lbl, flex: 1 }}>
 							Start Year
-							<input type="number" style={inp} onChange={set("StartYear")} />
+							<input type="number" style={iStyle} onChange={set("StartYear")} />
 						</label>
 						<label style={{ ...lbl, flex: 1 }}>
 							End Year
-							<input type="number" style={inp} onChange={set("EndYear")} />
+							<input type="number" style={iStyle} onChange={set("EndYear")} />
 						</label>
 					</div>
+					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8 }}>
+						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} />
+						Currently working here
+					</label>
 				</>
 			);
+
 		if (section === "Social Account")
 			return (
 				<>
 					<label style={lbl}>
 						Platform
-						<select style={inp} onChange={set("PlatformID")}>
+						<select style={iStyle} onChange={set("PlatformID")}>
 							<option value="">—</option>
-							{lookups.platforms.map((p) => (
+							{(lookups.platforms || []).map((p) => (
 								<option key={p.PlatformID} value={p.PlatformID}>
 									{p.PlatformName}
 								</option>
@@ -211,17 +298,18 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 						</select>
 					</label>
 					<label style={lbl}>
-						Handle / URL
-						<input style={inp} onChange={set("AccountTag")} />
+						Handle (without @)
+						<input style={iStyle} placeholder="personguy2000" onChange={set("AccountTag")} />
 					</label>
 				</>
 			);
+
 		if (section === "Specifics")
 			return (
 				<>
 					<label style={lbl}>
 						Category
-						<select style={inp} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))}>
+						<select style={iStyle} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))}>
 							<option value="">—</option>
 							{specificsTree.map((s) => (
 								<option key={s.SubSpecificsID} value={s.SubName}>
@@ -234,32 +322,71 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					{form.SubName === "__new__" && (
 						<label style={lbl}>
 							New category name
-							<input style={inp} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))} />
+							<input style={iStyle} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))} />
 						</label>
 					)}
 					<label style={lbl}>
 						Point
-						<input style={inp} placeholder="e.g. Food, Hobby…" onChange={set("PointName")} />
+						<input style={iStyle} placeholder="e.g. Food, Hobby…" onChange={set("PointName")} />
 					</label>
 					<label style={lbl}>
 						Value
-						<input style={inp} onChange={set("SpecificNote")} />
+						<input style={iStyle} onChange={set("SpecificNote")} />
 					</label>
 				</>
 			);
-		if (section === "Media File")
+
+		if (section === "Image")
 			return (
 				<>
+					{/* Drop zone */}
+					<div
+						onDragOver={(e) => {
+							e.preventDefault();
+							setDragOver(true);
+						}}
+						onDragLeave={() => setDragOver(false)}
+						onDrop={handleDrop}
+						onClick={() => fileInputRef.current?.click()}
+						style={{
+							border: `2px dashed ${dragOver ? "var(--color-accent)" : "var(--color-border)"}`,
+							borderRadius: "var(--radius-md)",
+							background: dragOver ? "var(--color-hover)" : "var(--color-surface-2)",
+							padding: 16,
+							textAlign: "center",
+							cursor: "pointer",
+							marginBottom: 12,
+							minHeight: 120,
+							display: "flex",
+							flexDirection: "column",
+							alignItems: "center",
+							justifyContent: "center",
+							gap: 8,
+							transition: "border-color 0.15s, background 0.15s",
+						}}
+					>
+						{imagePreview ? (
+							<img src={imagePreview} alt="preview" style={{ maxHeight: 100, maxWidth: "100%", objectFit: "contain", borderRadius: "var(--radius-sm)" }} />
+						) : (
+							<>
+								<div style={{ fontSize: 28, opacity: 0.5 }}>🖼</div>
+								<div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Drop image here, or click to browse</div>
+							</>
+						)}
+					</div>
+					<input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileInput} />
+
 					<label style={lbl}>
-						File Path
-						<input style={inp} onChange={set("FilePath")} />
+						Title
+						<input style={iStyle} placeholder={imageFilename || "Image title…"} value={form.Title ?? ""} onChange={set("Title")} />
 					</label>
 					<label style={lbl}>
 						Date
-						<input type="date" style={inp} onChange={set("Date")} />
+						<input type="date" style={iStyle} value={form.Date ?? today()} onChange={set("Date")} />
 					</label>
 				</>
 			);
+
 		return null;
 	};
 
@@ -272,34 +399,38 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					border: "1px solid var(--color-border-2)",
 					borderRadius: "var(--radius-lg)",
 					boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
-					width: 460,
-					maxHeight: "80vh",
+					width: 480,
+					maxHeight: "82vh",
 					display: "flex",
 					flexDirection: "column",
+					overflow: "hidden",
 				}}
 			>
 				{/* Header */}
-				<div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<span style={{ fontWeight: "bold" }}>Quick Add — {person.FullName}</span>
-					<button onClick={onClose} style={{ border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "var(--text-muted)" }}>
+				<div style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+					<span style={{ fontWeight: "bold", color: "var(--color-text)", fontSize: "var(--font-size-base)" }}>Quick Add — {person.FullName}</span>
+					<button onClick={onClose} style={{ border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "var(--color-text-muted)", lineHeight: 1 }}>
 						✕
 					</button>
 				</div>
 
 				{/* Page tabs */}
-				<div style={{ display: "flex", borderBottom: "1px solid var(--border-secondary)" }}>
+				<div style={{ display: "flex", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
 					{PAGES.map((p) => (
 						<button
 							key={p}
 							onClick={() => setPage(p)}
 							style={{
 								flex: 1,
-								padding: "6px 0",
+								padding: "7px 0",
 								border: "none",
-								borderBottom: page === p ? "2px solid var(--bg-active)" : "2px solid transparent",
+								borderBottom: page === p ? "2px solid var(--color-accent)" : "2px solid transparent",
 								background: "transparent",
-								color: page === p ? "var(--text-accent)" : "var(--text-secondary)",
+								color: page === p ? "var(--color-accent)" : "var(--color-text-muted)",
 								fontWeight: page === p ? "bold" : "normal",
+								cursor: "pointer",
+								fontFamily: "var(--font-mono)",
+								fontSize: "var(--font-size-sm)",
 							}}
 						>
 							{p}
@@ -308,14 +439,16 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 				</div>
 
 				{/* Section dropdown */}
-				<div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-faint)" }}>
+				<div style={{ padding: "8px 16px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
 					<select
 						value={section}
 						onChange={(e) => {
 							setSection(e.target.value);
 							setForm({});
+							setImagePreview(null);
+							setImageFilename("");
 						}}
-						style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--border-primary)", color: "var(--text-primary)", background: "var(--bg-primary)" }}
+						style={{ ...iStyle, marginTop: 0 }}
 					>
 						{SECTIONS[page].map((s) => (
 							<option key={s} value={s}>
@@ -325,19 +458,15 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</select>
 				</div>
 
-				{/* Dynamic form */}
-				<div style={{ padding: "12px 14px", overflowY: "auto", flex: 1 }}>{renderForm()}</div>
+				{/* Form */}
+				<div style={{ padding: "14px 16px", overflowY: "auto", flex: 1 }}>{renderForm()}</div>
 
 				{/* Footer */}
-				<div style={{ padding: "8px 14px", borderTop: "1px solid var(--border-secondary)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
-					<button onClick={onClose} style={{ padding: "4px 12px", border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
+				<div style={{ padding: "10px 16px", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
+					<button onClick={onClose} style={btnG}>
 						Cancel
 					</button>
-					<button
-						onClick={handleSave}
-						disabled={saving}
-						style={{ padding: "4px 12px", background: "var(--bg-active)", color: "var(--text-on-active)", border: "none", borderRadius: "var(--radius-sm)" }}
-					>
+					<button onClick={handleSave} disabled={saving} style={btnP}>
 						{saving ? "Saving…" : "Save"}
 					</button>
 				</div>

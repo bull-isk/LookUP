@@ -233,29 +233,48 @@ function linkMedia(personId, mediaId, role = null) {
 }
 
 // Set or clear the role of an already-linked media item.
+// role = 'primary' | 'secondary' | null (null = unset)
 function setMediaRole(personId, mediaId, role) {
 	const db = getDb();
 
+	// Always clear THIS image's current role first, so it's not counted
+	// when checking the secondary cap below.
+	db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND MediaID = ?`).run(personId, mediaId);
+
 	if (role === "primary") {
+		// Clear any other primary
 		db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND Role = 'primary'`).run(personId);
 	}
 
 	if (role === "secondary") {
-		const count = db.prepare(`SELECT COUNT(*) as n FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' AND MediaID != ?`).get(personId, mediaId).n;
+		// Count remaining secondaries (this image is already cleared above)
+		const count = db.prepare(`SELECT COUNT(*) as n FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary'`).get(personId).n;
 		if (count >= 2) {
-			const oldest = db.prepare(`SELECT MediaID FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' AND MediaID != ? ORDER BY MediaID ASC LIMIT 1`).get(personId, mediaId);
+			// Evict oldest
+			const oldest = db.prepare(`SELECT MediaID FROM PersonMedia WHERE PersonID = ? AND Role = 'secondary' ORDER BY MediaID ASC LIMIT 1`).get(personId);
 			if (oldest) {
 				db.prepare(`UPDATE PersonMedia SET Role = NULL WHERE PersonID = ? AND MediaID = ?`).run(personId, oldest.MediaID);
 			}
 		}
 	}
 
-	db.prepare(`UPDATE PersonMedia SET Role = ? WHERE PersonID = ? AND MediaID = ?`).run(role, personId, mediaId);
+	if (role !== null) {
+		db.prepare(`UPDATE PersonMedia SET Role = ? WHERE PersonID = ? AND MediaID = ?`).run(role, personId, mediaId);
+	}
+	// If role is null, we already cleared it above — nothing more to do.
+
 	touchLastUpdated(personId);
 }
 
 function unlinkMedia(personId, mediaId) {
-	getDb().prepare(`DELETE FROM PersonMedia WHERE PersonID = ? AND MediaID = ?`).run(personId, mediaId);
+	const db = getDb();
+	// Remove the link
+	db.prepare(`DELETE FROM PersonMedia WHERE PersonID = ? AND MediaID = ?`).run(personId, mediaId);
+	// Also delete the Media row if no other person is linked to it
+	const stillLinked = db.prepare(`SELECT COUNT(*) as n FROM PersonMedia WHERE MediaID = ?`).get(mediaId).n;
+	if (stillLinked === 0) {
+		db.prepare(`DELETE FROM Media WHERE MediaID = ?`).run(mediaId);
+	}
 	touchLastUpdated(personId);
 }
 
