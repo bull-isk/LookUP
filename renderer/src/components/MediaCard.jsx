@@ -6,7 +6,7 @@
 import { useState } from "react";
 
 const ROLE_LABELS = { primary: "★ Main", secondary: "◆ Secondary" };
-const ROLE_COLORS = { primary: "#6366f1", secondary: "#818cf8" };
+const ROLE_COLORS = { primary: "var(--color-primary)", secondary: "var(--color-accent)" };
 
 export default function MediaCard({ m, personId, onReload }) {
 	const [hovered, setHovered] = useState(false);
@@ -86,8 +86,8 @@ export default function MediaCard({ m, personId, onReload }) {
 							top: 5,
 							right: 5,
 							background: "rgba(0,0,0,0.65)",
-							color: "#fca5a5",
-							border: "1px solid #ef4444",
+							color: "var(--color-danger)",
+							border: "1px solid var(--color-danger)",
 							borderRadius: "var(--radius-sm)",
 							padding: "2px 8px",
 							cursor: "pointer",

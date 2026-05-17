@@ -8,19 +8,19 @@ const api = window.electronAPI;
 const S = {
 	h2: { marginTop: 0, marginBottom: 4, fontSize: 15 },
 	section: { marginBottom: 28 },
-	sub: { color: "#666", fontSize: 11, marginBottom: 8 },
-	card: { display: "flex", alignItems: "baseline", gap: 8, padding: "5px 0", borderBottom: "1px solid #eee", cursor: "pointer" },
-	name: { color: "#e8ecff", fontWeight: "bold" },
-	nick: { color: "#777", fontSize: 11 },
-	meta: { color: "#555", fontSize: 11, marginLeft: "auto" },
+	sub: { color: "var(--color-text-muted)", fontSize: "var(--font-size-xs)", marginBottom: 8 },
+	card: { display: "flex", alignItems: "baseline", gap: 8, padding: "5px 0", borderBottom: "var(--divider)", cursor: "pointer" },
+	name: { color: "var(--color-text)", fontWeight: "bold" },
+	nick: { color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" },
+	meta: { color: "var(--color-text-faint)", fontSize: "var(--font-size-sm)", marginLeft: "auto" },
 	cat: (color) => ({
 		fontSize: 10,
 		padding: "1px 5px",
 		borderRadius: 3,
-		background: color || "#ddd",
-		color: "#d6dcff",
+		background: color || "var(--active)", // was: color || "#4f46e5"
+		color: "var(--color-text-on-primary)", // was: "#fff"
 	}),
-	empty: { color: "#aaa", fontStyle: "italic", fontSize: 12 },
+	empty: { color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" },
 };
 
 function PersonRow({ person, meta, onOpenPerson }) {

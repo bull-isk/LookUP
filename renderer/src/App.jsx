@@ -108,7 +108,7 @@ export default function App() {
 								setCreating(true);
 								setNavView("people");
 							}}
-							style={{ marginLeft: "auto", background: "var(--color-primary)", color: "#fff", border: "none", padding: "2px 7px", borderRadius: "var(--radius-sm)", cursor: "pointer" }}
+							style={{ marginLeft: "auto", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", padding: "2px 7px", borderRadius: "var(--radius-sm)", cursor: "pointer" }}
 						>
 							+ New
 						</button>
@@ -132,7 +132,7 @@ export default function App() {
 								<div>{p.FullName}</div>
 								{p.Nickname && <div style={{ fontSize: "var(--font-size-xs)", opacity: 0.7 }}>{p.Nickname}</div>}
 								{p.CategoryName && (
-									<div style={{ fontSize: "var(--font-size-xs)", color: p.PersonID === selectedId && !creating ? "rgba(255,255,255,0.6)" : "var(--color-text-faint)" }}>
+									<div style={{ fontSize: "var(--font-size-xs)", color: p.PersonID === selectedId && !creating ? "var(--color-text-on-primary)" : "var(--color-text-faint)" }}>
 										{p.CategoryName}
 									</div>
 								)}

@@ -1,13 +1,9 @@
 // electron/ipc/lookup.handlers.js
 const { ipcMain } = require("electron");
 const repo = require("../../db/repositories/lookup.repo");
-const { getDb } = require("../../db/connection");
 
 module.exports = function registerLookupHandlers() {
 	ipcMain.handle("lookup:all", () => repo.getAllLookups());
-	ipcMain.handle("lookup:addCategory", (_, d) => repo.addCategory(d));
-	ipcMain.handle("lookup:addPronoun", (_, t) => repo.addPronoun(t));
-	ipcMain.handle("lookup:addOrg", (_, n) => repo.addOrg(n));
 	ipcMain.handle("lookup:addInst", (_, d) => repo.addInstitution(d));
 	// Tags
 	ipcMain.handle("lookup:findOrCreateTag", (_, n) => repo.findOrCreateTag(n));
@@ -23,9 +19,6 @@ module.exports = function registerLookupHandlers() {
 	ipcMain.handle("lookup:findOrCreateInstitution", (_, name) => repo.findOrCreateInstitution(name));
 	ipcMain.handle("lookup:findOrCreateOrganization", (_, name) => repo.findOrCreateOrganization(name));
 
-	const { shell } = require("electron");
-	ipcMain.handle("shell:openExternal", (_, url) => shell.openExternal(url));
-	ipcMain.handle("lookup:addSocialPlatform", (_, name) => {
-		return getDb().prepare(`INSERT INTO SocialPlatform (PlatformName, Logo, URLTemplate) VALUES (?, '', '')`).run(name).lastInsertRowid;
-	});
+	ipcMain.handle("ipcMain:openExternal", (_, url) => shell.openExternal(url));
+	ipcMain.handle('lookup:addSocialPlatform', (_, name) => repo.addSocialPlatform(name));
 };

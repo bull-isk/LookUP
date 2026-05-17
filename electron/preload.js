@@ -40,10 +40,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Lookups
   lookupAll:                  ()         => ipcRenderer.invoke('lookup:all'),
-  lookupAddCategory:          (d)        => ipcRenderer.invoke('lookup:addCategory', d),
-  lookupAddPronoun:           (t)        => ipcRenderer.invoke('lookup:addPronoun', t),
-  lookupAddOrg:               (n)        => ipcRenderer.invoke('lookup:addOrg', n),
-  lookupAddInst:              (d)        => ipcRenderer.invoke('lookup:addInst', d),
   lookupFindOrCreateTag:      (n)        => ipcRenderer.invoke('lookup:findOrCreateTag', n),
   lookupTagsWithCounts:       ()         => ipcRenderer.invoke('lookup:tagsWithCounts'),
   lookupPersonsByTag:         (id)       => ipcRenderer.invoke('lookup:personsByTag', id),
@@ -61,7 +57,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   specificsFindOrCreatePoint: (sid, name) => ipcRenderer.invoke('specifics:findOrCreatePoint', sid, name),
 
   socialUpdate:             (id, tag)     => ipcRenderer.invoke('social:update', id, tag),
-  personDeletePopulateTest: ()            => ipcRenderer.invoke('person:deletePopulateTest'),
 
   openExternal:          (url)            => ipcRenderer.invoke('shell:openExternal', url),
   lookupAddSocialPlatform:(name)          => ipcRenderer.invoke('lookup:addSocialPlatform', name),

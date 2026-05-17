@@ -139,18 +139,11 @@ function findOrCreateOrganization(name) {
 	return db.prepare(`INSERT INTO Organization (OrgName) VALUES (?)`).run(trimmed).lastInsertRowid;
 }
 
-// ── LEGACY HELPERS (kept for IPC compatibility) ───────────────────
-function addCategory(data) {
-	return getDb().prepare("INSERT INTO Category (CategoryName,SVGPath,HexCode) VALUES (@CategoryName,@SVGPath,@HexCode)").run(data).lastInsertRowid;
-}
-function addPronoun(text) {
-	return findOrCreatePronoun(text);
-}
-function addOrg(name) {
-	return getDb().prepare("INSERT INTO Organization (OrgName) VALUES (?)").run(name).lastInsertRowid;
-}
-function addInstitution(data) {
-	return getDb().prepare("INSERT INTO AcademicInst (InstitutionName,Link) VALUES (@InstitutionName,@Link)").run(data).lastInsertRowid;
+// Add a new social platform with the given name. Returns PlatformID.
+function addSocialPlatform(name) {
+    return getDb()
+        .prepare(`INSERT INTO SocialPlatform (PlatformName, Logo, URLTemplate) VALUES (?, '', '')`)
+        .run(name).lastInsertRowid;
 }
 
 module.exports = {
@@ -163,10 +156,7 @@ module.exports = {
 	pruneOrphanPronouns,
 	findOrCreateCategory,
 	pruneOrphanCategories,
-	addCategory,
-	addPronoun,
-	addOrg,
-	addInstitution,
 	findOrCreateInstitution,
 	findOrCreateOrganization,
+	addSocialPlatform,
 };

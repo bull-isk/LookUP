@@ -58,7 +58,7 @@ export default function SocialChip({ social, onEdit, onDelete }) {
 				/>
 				<button
 					onClick={commitEdit}
-					style={{ padding: "1px 6px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+					style={{ padding: "1px 6px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
 				>
 					✓
 				</button>

@@ -21,10 +21,6 @@ export const noteCreate        = (d)        => api.noteCreate(d);
 export const noteUpdate        = (id, d)    => api.noteUpdate(id, d);
 export const noteDelete        = (id)       => api.noteDelete(id);
 
-export const specificCreate    = (d)        => api.specificCreate(d);
-export const specificUpdate    = (id, d)    => api.specificUpdate(id, d);
-export const specificDelete    = (id)       => api.specificDelete(id);
-
 export const eduCreate         = (d)        => api.eduCreate(d);
 export const eduUpdate         = (id, d)    => api.eduUpdate(id, d);
 export const eduDelete         = (id)       => api.eduDelete(id);
@@ -41,16 +37,11 @@ export const mediaLink         = (pid, mid) => api.mediaLink(pid, mid);
 export const mediaUnlink       = (pid, mid) => api.mediaUnlink(pid, mid);
 
 export const lookupAll         = ()         => api.lookupAll();
-export const lookupAddTag      = (n)        => api.lookupAddTag(n);
-export const lookupAddOrg      = (n)        => api.lookupAddOrg(n);
-export const lookupAddInst     = (d)        => api.lookupAddInst(d);
-export const lookupAddCategory = (d)        => api.lookupAddCategory(d);
 
 // Phase A — new page data
 export const personBirthdays       = ()      => api.personBirthdays();
 export const personRecentlyUpdated = (limit) => api.personRecentlyUpdated(limit);
 export const personFavorites       = (limit) => api.personFavorites(limit);
-export const personByTag           = ()      => api.personByTag();
 
 // Phase B — specifics
 export const personSearch               = (q)       => api.personSearch(q);
@@ -70,4 +61,3 @@ export const specificsFindOrCreateSub   = (name)    => api.specificsFindOrCreate
 export const specificsFindOrCreatePoint = (sid,name)=> api.specificsFindOrCreatePoint(sid, name);
 
 export const socialUpdate               = (id, tag) => api.socialUpdate(id, tag);
-export const personDeletePopulateTest   = ()        => api.personDeletePopulateTest();

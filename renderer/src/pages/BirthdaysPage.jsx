@@ -10,8 +10,8 @@ const S = {
 		fontSize: 12,
 		textTransform: "uppercase",
 		letterSpacing: 1,
-		color: "#fff",
-		background: color || "#4f46e5", // fallback indigo
+		background: color || "var(--color-active)", // was: color || "#4f46e5"
+		color: "var(--color-text-on-primary)", // was: "#fff"
 		padding: "3px 8px",
 		marginTop: 16,
 		marginBottom: 6,
@@ -24,37 +24,37 @@ const S = {
 		alignItems: "baseline",
 		gap: 8,
 		padding: "6px 0",
-		borderBottom: "1px solid #2a2f4a",
+		borderBottom: "var(--divider)", // was: "1px solid #2a2f4a"
 		cursor: "pointer",
 	},
 
 	name: {
 		fontWeight: "bold",
-		color: "#e8ecff",
+		color: "var(--color-text)", // was: "#e8ecff"
 	},
 
 	nick: {
-		color: "#8f97c9",
+		color: "var(--color-text-muted)", // was: "#8f97c9"
 		fontSize: 11,
 	},
 
 	date: {
-		color: "#7c84b6",
+		color: "var(--color-text-faint)", // was: "#7c84b6"
 		fontSize: 11,
 	},
 
 	meta: {
 		marginLeft: "auto",
 		fontSize: 12,
-		color: "#a5b0d6",
+		color: "var(--color-text-muted)", // was: "#a5b0d6"
 	},
 
 	cat: (color) => ({
 		fontSize: 10,
 		padding: "1px 5px",
 		borderRadius: 3,
-		background: color ? color + "55" : "#2a2f4a",
-		color: "#d6dcff",
+		background: color ? color + "33" : "var(--color-surface-3)", // was: color+"55" : "#2a2f4a"
+		color: "var(--color-text)", // was: "#d6dcff"
 	}),
 
 	empty: {
@@ -113,7 +113,7 @@ export default function BirthdaysPage({ onOpenPerson }) {
 	return (
 		<div>
 			<h2 style={{ marginTop: 0 }}>Birthdays</h2>
-			<div style={{ color: "#666", fontSize: 12, marginBottom: 16 }}>
+			<div style={{ color: "var(--color-text-faint)", fontSize: 12, marginBottom: 16 }}>
 				{total} people with a recorded birthdate.
 				{noBirthday > 0 && ` ${noBirthday} have no birthdate.`}
 			</div>

@@ -196,7 +196,7 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 			</div>
 
 			<div style={{ display: "flex", gap: 6 }}>
-				<button onClick={handleSave} style={{ padding: "4px 12px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
+				<button onClick={handleSave} style={{ padding: "4px 12px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
 					Add
 				</button>
 				<button
@@ -294,7 +294,7 @@ function PointRow({ pt, personId, onReload }) {
 						/>
 						<button
 							onClick={commitAdd}
-							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
 						>
 							✓
 						</button>

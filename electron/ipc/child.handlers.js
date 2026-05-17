@@ -19,10 +19,6 @@ module.exports = function registerChildHandlers() {
   ipcMain.handle('note:update',     (_, id, d) => c.updateNote(id, d));
   ipcMain.handle('note:delete',     (_, id) => c.deleteNote(id));
 
-  ipcMain.handle('specific:create', (_, d) => c.createSpecific(d));
-  ipcMain.handle('specific:update', (_, id, d) => c.updateSpecific(id, d));
-  ipcMain.handle('specific:delete', (_, id) => c.deleteSpecific(id));
-
   ipcMain.handle('edu:create',      (_, d) => c.createEdu(d));
   ipcMain.handle('edu:update',      (_, id, d) => c.updateEdu(id, d));
   ipcMain.handle('edu:delete',      (_, id) => c.deleteEdu(id));

@@ -56,7 +56,7 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 					style={{
 						padding: "1px 5px",
 						background: "var(--color-primary)",
-						color: "#fff",
+						color: "var(--color-text-on-primary)",
 						border: "none",
 						borderRadius: "var(--radius-sm)",
 						cursor: "pointer",
