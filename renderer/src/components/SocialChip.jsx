@@ -1,6 +1,4 @@
 // renderer/src/components/SocialChip.jsx
-// Platform-aware chip for social accounts.
-// Click body → shell.openExternal(url). Hover → overlay Edit + Delete.
 import { useState } from "react";
 
 function buildURL(template, handle) {
@@ -17,7 +15,6 @@ export default function SocialChip({ social, onEdit, onDelete }) {
 
 	const handleClick = () => {
 		if (editing || !url) return;
-		// Use Electron shell.openExternal via IPC — NOT window.open
 		window.electronAPI.openExternal(url);
 	};
 
@@ -34,10 +31,22 @@ export default function SocialChip({ social, onEdit, onDelete }) {
 		setEditing(false);
 	};
 
-	// Editing mode
+	const inpBase = {
+		padding: "2px 8px",
+		border: "1px solid var(--color-accent)",
+		borderRadius: "var(--radius-sm)",
+		background: "var(--color-surface-2)",
+		color: "var(--color-text)",
+		fontSize: "13px",
+		width: 140,
+		height: "24px",
+		fontFamily: "var(--font-mono)",
+	};
+
+	// ── EDITING STATE (Clean Inline Input Row) ──────────────────────
 	if (editing) {
 		return (
-			<span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginRight: 4, marginBottom: 4 }}>
+			<div style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: "26px" }}>
 				<input
 					autoFocus
 					value={draft}
@@ -46,92 +55,94 @@ export default function SocialChip({ social, onEdit, onDelete }) {
 						if (e.key === "Enter") commitEdit();
 						if (e.key === "Escape") cancelEdit();
 					}}
-					style={{
-						padding: "2px 6px",
-						border: "1px solid var(--color-accent)",
-						borderRadius: "var(--radius-sm)",
-						background: "var(--color-surface-2)",
-						color: "var(--color-text)",
-						fontSize: "var(--font-size-sm)",
-						width: 130,
-					}}
+					style={inpBase}
 				/>
 				<button
 					onClick={commitEdit}
-					style={{ padding: "1px 6px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+					style={{
+						display: "inline-flex",
+						alignItems: "center",
+						justifyContent: "center",
+						width: "24px",
+						height: "24px",
+						background: "var(--color-primary)",
+						color: "#fff",
+						border: "none",
+						borderRadius: "var(--radius-sm)",
+						cursor: "pointer",
+					}}
 				>
-					✓
+					<i className="fa-solid fa-check" style={{ fontSize: "10px" }}></i>
 				</button>
 				<button
 					onClick={cancelEdit}
 					style={{
-						padding: "1px 5px",
+						display: "inline-flex",
+						alignItems: "center",
+						justifyContent: "center",
+						width: "24px",
+						height: "24px",
 						background: "transparent",
 						border: "1px solid var(--color-border)",
 						borderRadius: "var(--radius-sm)",
 						color: "var(--color-text-muted)",
 						cursor: "pointer",
-						fontSize: 11,
 					}}
 				>
-					✕
+					<i className="fa-solid fa-xmark" style={{ fontSize: "10px" }}></i>
 				</button>
-			</span>
+			</div>
 		);
 	}
 
+	// ── DISPLAY STATE (Clean Handle Row) ──────────────────────
 	return (
-		// Outer container expands right on hover to encompass the overlay — fixes disappearing button bug
-		<span
+		<div
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
 			style={{
-				position: "relative",
 				display: "inline-flex",
 				alignItems: "center",
-				marginRight: 4,
-				marginBottom: 4,
-				transition: "padding-right 0.05s",
+				minHeight: "26px",
+				position: "relative",
 			}}
 		>
-			{/* Chip body */}
 			<span
 				onClick={handleClick}
 				style={{
-					display: "inline-flex",
-					alignItems: "center",
-					background: "var(--color-surface-3)",
-					color: "var(--color-text)",
-					padding: "2px 8px",
-					borderRadius: "var(--radius-sm)",
-					fontSize: "var(--font-size-sm)",
+					fontSize: "13px",
+					color: url ? "var(--color-accent)" : "var(--color-text)",
 					cursor: url ? "pointer" : "default",
 					userSelect: "none",
-					border: hovered && url ? "1px solid var(--color-accent)" : "1px solid transparent",
-					transition: "border-color 0.1s",
-					whiteSpace: "nowrap",
+					textDecoration: hovered && url ? "underline" : "none",
+					transition: "color 0.1s",
+					fontFamily: "var(--font-mono)",
 				}}
 			>
-				@{social.AccountTag}
+				{social.AccountTag.startsWith("@") ? social.AccountTag : `@${social.AccountTag}`}
 			</span>
 
-			{/* Overlay — position:absolute so it doesn't shift layout */}
+			{/* Transparent bridge element zone to block pointer jitter */}
+			{hovered && <span style={{ position: "absolute", left: "100%", top: 0, bottom: 0, width: 60, background: "transparent", zIndex: 19 }} />}
+
+			{/* Hover Floating Action Capsule with Solid Background Layer */}
 			{hovered && (
 				<span
 					style={{
 						position: "absolute",
-						left: "100%",
+						left: "calc(100% + 8px)",
 						top: "50%",
 						transform: "translateY(-50%)",
-						marginLeft: 3,
 						display: "inline-flex",
 						gap: 2,
-						background: "var(--color-surface)",
+						// Anchored solid dark layout surface grounding
+						background: "var(--color-surface-2, #181a26)",
 						border: "1px solid var(--color-border)",
-						borderRadius: "var(--radius-sm)",
-						padding: "2px 3px",
-						boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+						borderRadius: "var(--radius-sm, 4px)",
+						padding: "3px",
+						boxShadow: "0 4px 16px rgba(0, 0, 0, 0.6)",
 						zIndex: 20,
+						whiteSpace: "nowrap",
 					}}
 				>
 					<button
@@ -140,23 +151,61 @@ export default function SocialChip({ social, onEdit, onDelete }) {
 							setDraft(social.AccountTag);
 							setEditing(true);
 						}}
-						title="Edit handle"
-						style={{ padding: "1px 5px", background: "transparent", border: "none", color: "var(--color-text-muted)", cursor: "pointer", fontSize: 11 }}
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "22px",
+							height: "22px",
+							background: "transparent",
+							border: "none",
+							color: "var(--color-text-muted)",
+							cursor: "pointer",
+							borderRadius: "var(--radius-sm, 4px)",
+							transition: "var(--transition)",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "var(--color-surface-3, rgba(255,255,255,0.06))";
+							e.currentTarget.style.color = "var(--color-text)";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+							e.currentTarget.style.color = "var(--color-text-muted)";
+						}}
+						title="Edit Handle"
 					>
-						✏
+						<i className="fa-solid fa-pen" style={{ fontSize: "10px" }}></i>
 					</button>
 					<button
 						onClick={(e) => {
 							e.stopPropagation();
 							onDelete(social.SocialID);
 						}}
-						title="Delete"
-						style={{ padding: "1px 5px", background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: 11 }}
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "22px",
+							height: "22px",
+							background: "transparent",
+							border: "none",
+							color: "var(--color-danger)",
+							cursor: "pointer",
+							borderRadius: "var(--radius-sm, 4px)",
+							transition: "var(--transition)",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "rgba(239, 68, 68, 0.15)";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+						}}
+						title="Delete Row"
 					>
-						✕
+						<i className="fa-solid fa-trash" style={{ fontSize: "10px" }}></i>
 					</button>
 				</span>
 			)}
-		</span>
+		</div>
 	);
 }

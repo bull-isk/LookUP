@@ -70,14 +70,15 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 
 	// Tab button style helper
 	const tabStyle = (t) => ({
-		padding: "6px 16px",
+		padding: "6px 20px",
 		border: "none",
 		cursor: "pointer",
-		background: "transparent",
-		color: innerTab === t ? "var(--color-accent)" : "var(--color-text-muted)",
-		fontWeight: innerTab === t ? "bold" : "normal",
-		borderBottom: innerTab === t ? "2px solid var(--color-accent)" : "2px solid transparent",
-		marginBottom: -1,
+		background: innerTab === t ? "rgba(255, 255, 255, 0.08)" : "transparent",
+		color: innerTab === t ? "#fff" : "rgba(255, 255, 255, 0.3)",
+		fontWeight: "600",
+		fontSize: "13px",
+		borderRadius: "var(--radius-pill)",
+		transition: "var(--transition)",
 	});
 
 	return (
@@ -100,12 +101,14 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 			/>
 
 			{/* Inner tab bar */}
-			<div style={{ display: "flex", borderBottom: "1px solid var(--color-border)", marginBottom: 16 }}>
-				{["Details", "Text", "Media"].map((t) => (
-					<button key={t} onClick={() => setInnerTab(t)} style={tabStyle(t)}>
-						{t}
-					</button>
-				))}
+			<div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+				<div style={{ display: "flex", background: "rgba(0, 0, 0, 0.4)", border: "1px solid rgba(255, 255, 255, 0.08)", padding: "4px", borderRadius: "var(--radius-pill)" }}>
+					{["Details", "Text", "Media"].map((t) => (
+						<button key={t} onClick={() => setInnerTab(t)} style={tabStyle(t)}>
+							{t}
+						</button>
+					))}
+				</div>
 			</div>
 
 			{/* Tab content — display:none keeps sub-component state alive */}
@@ -136,26 +139,42 @@ export default function PersonDetail({ personId, onDeleted, onOpenTag }) {
 				<MediaTab personId={personId} media={media} onReload={reload} />
 			</div>
 
-			{/* Floating Ctrl+N button */}
+			{/* Floating capsule block tool */}
 			<button
 				onClick={() => setQuickAdd(true)}
-				title="Quick Add (Ctrl+N)"
+				title="Add Info Panel (Ctrl+N)"
 				style={{
 					position: "fixed",
-					bottom: 24,
-					right: 24,
+					bottom: 28,
+					right: 28,
+					// Using your design system's primary color and theme tokens
 					background: "var(--color-primary)",
 					color: "#fff",
-					border: "none",
-					borderRadius: "var(--radius-md)",
-					padding: "8px 16px",
+					border: "1px solid rgba(255, 255, 255, 0.05)",
+					borderRadius: "var(--radius-pill)", // Changed to pill/capsule to match figma spec rounding
+					padding: "10px 20px",
 					cursor: "pointer",
-					boxShadow: "0 2px 12px rgba(99,102,241,0.4)",
+					fontWeight: "600",
+					fontSize: "13px",
+					display: "flex",
+					alignItems: "center",
+					gap: "8px",
+					boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)", // Darkened shadow for better elevation over dark panels
 					zIndex: 100,
-					fontSize: "var(--font-size-sm)",
+					transition: "var(--transition)",
+				}}
+				onMouseEnter={(e) => {
+					e.currentTarget.style.transform = "translateY(-2px)";
+					e.currentTarget.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.6)";
+					e.currentTarget.style.filter = "brightness(1.1)";
+				}}
+				onMouseLeave={(e) => {
+					e.currentTarget.style.transform = "translateY(0)";
+					e.currentTarget.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.5)";
+					e.currentTarget.style.filter = "brightness(1)";
 				}}
 			>
-				Ctrl+N +
+				<i className="fa-solid fa-plus" style={{ fontSize: "12px" }}></i> Add Info
 			</button>
 		</div>
 	);

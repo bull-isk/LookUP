@@ -10,6 +10,15 @@ import { eduCreate, eduUpdate, eduDelete, orgCreate, orgUpdate, orgDelete, socia
 
 const api = window.electronAPI;
 
+const detailRowLabel = {
+	fontFamily: "var(--font-mono)",
+	fontSize: "13px",
+	fontWeight: "600",
+	color: "var(--color-text-muted)",
+	minWidth: "120px",
+	display: "inline-block",
+};
+
 // ── Timezone: static text → dropdown on click ─────────────────────
 function TimezoneField({ value, timezones, onSave }) {
 	const [open, setOpen] = useState(false);
@@ -380,14 +389,46 @@ function SocialRow({ plat, platformId, accs, onEdit, onDelete, onAdd }) {
 		setAddOpen(false);
 	};
 
+	// Dynamically returns social network platform specific brand vectors
+	const getSocialIcon = (name) => {
+		const lower = name.toLowerCase();
+		if (lower.includes("discord")) return "fa-brands fa-discord";
+		if (lower.includes("github")) return "fa-brands fa-github";
+		if (lower.includes("twitter") || lower.includes("x")) return "fa-brands fa-x-twitter";
+		if (lower.includes("instagram")) return "fa-brands fa-instagram";
+		if (lower.includes("linkedin")) return "fa-brands fa-linkedin";
+		if (lower.includes("youtube")) return "fa-brands fa-youtube";
+		if (lower.includes("tiktok")) return "fa-brands fa-tiktok";
+		return "fa-solid fa-hashtag"; // default crisp universal anchor symbol fallback
+	};
+
 	return (
-		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}>
-			<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 4, flexShrink: 0 }}>{plat}</span>
-			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "center" }}>
+			{/* Left Column Platform Key — Perfect 120px guide lane tracking */}
+			<span
+				style={{
+					color: "var(--color-text-muted)",
+					fontSize: "13px",
+					minWidth: "120px",
+					display: "inline-flex",
+					alignItems: "center",
+					fontFamily: "var(--font-mono)",
+					fontWeight: "600",
+					flexShrink: 0,
+				}}
+			>
+				<i className={getSocialIcon(plat)} style={{ width: 16, marginRight: 8, color: "rgba(255, 255, 255, 0.25)" }}></i>
+				{plat}
+			</span>
+
+			{/* Right Column Value List Track */}
+			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
 				{accs.map((s) => (
 					<SocialChip key={s.SocialID} social={s} onEdit={onEdit} onDelete={onDelete} />
 				))}
+
 				{addOpen ? (
+					/* ── ACTIVE INPUT STATE: Standardized to match inline Chip inputs ── */
 					<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
 						<input
 							autoFocus
@@ -408,39 +449,66 @@ function SocialRow({ plat, platformId, accs, onEdit, onDelete, onAdd }) {
 							}
 							placeholder="handle…"
 							style={{
-								padding: "2px 6px",
+								padding: "2px 8px",
 								border: "1px solid var(--color-accent)",
 								borderRadius: "var(--radius-sm)",
 								background: "var(--color-surface-2)",
 								color: "var(--color-text)",
-								fontSize: "var(--font-size-sm)",
-								width: 110,
+								fontSize: "13px",
+								fontFamily: "var(--font-mono)",
+								width: 120,
+								height: "22px",
 							}}
 						/>
 						<button
 							onClick={commitAdd}
-							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								justifyContent: "center",
+								width: "22px",
+								height: "22px",
+								background: "var(--color-primary)",
+								color: "#fff",
+								border: "none",
+								borderRadius: "var(--radius-sm)",
+								cursor: "pointer",
+							}}
 						>
-							✓
+							<i className="fa-solid fa-check" style={{ fontSize: "10px" }}></i>
 						</button>
 					</span>
 				) : (
+					/* ── PASSIVE HOVER STATE: Formatted identically to primitive add chips ── */
 					rowHovered && (
 						<span
 							onClick={() => setAddOpen(true)}
 							style={{
 								display: "inline-flex",
 								alignItems: "center",
+								gap: "4px",
 								padding: "2px 8px",
 								borderRadius: "var(--radius-sm)",
-								fontSize: "var(--font-size-sm)",
+								fontSize: "12px",
 								cursor: "pointer",
 								border: "1px dashed var(--color-border)",
-								color: "var(--color-text-faint)",
+								color: "var(--color-text-muted)",
+								background: "rgba(255, 255, 255, 0.01)",
 								userSelect: "none",
+								transition: "var(--transition)",
+							}}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.borderColor = "var(--color-accent)";
+								e.currentTarget.style.color = "var(--color-text)";
+								e.currentTarget.style.background = "rgba(99, 102, 241, 0.05)";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.borderColor = "var(--color-border)";
+								e.currentTarget.style.color = "var(--color-text-muted)";
+								e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)";
 							}}
 						>
-							+ Add
+							<i className="fa-solid fa-plus" style={{ fontSize: "10px", opacity: 0.7 }}></i> Add
 						</span>
 					)
 				)}
@@ -551,21 +619,37 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 	return (
 		<>
 			{/* ── PRIMARY GROUP ── */}
-			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 5 }}>
-					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90 }}>Birthdate</span>
-					<BirthdateField value={person.Birthdate} onSave={(v) => saveField("Birthdate", v)} />
+			<div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: "12px" }}>
+				{/* Birthdate Row */}
+				<div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: "24px" }}>
+					<span style={detailRowLabel}>
+						<i className="fa-solid fa-cake-candles" style={{ width: 16, marginRight: 8 }}></i>
+						Birthdate
+					</span>
+					<BirthdateField value={person?.Birthdate} onSave={(v) => saveField("Birthdate", v)} />
 				</div>
-				<div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 5 }}>
-					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90 }}>Timezone</span>
-					<TimezoneField value={person.TimezoneID} timezones={lookups.timezones} onSave={(v) => saveField("TimezoneID", v)} />
+
+				{/* Timezone Row */}
+				<div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: "24px" }}>
+					<span style={detailRowLabel}>
+						<i className="fa-solid fa-clock" style={{ width: 16, marginRight: 8 }}></i>
+						Timezone
+					</span>
+					<TimezoneField value={person?.TimezoneID} timezones={lookups?.timezones || []} onSave={(v) => saveField("TimezoneID", v)} />
 				</div>
-				<InlineField label="Address" value={person.Address} onSave={(v) => saveField("Address", v)} placeholder="(click to add address)" />
-				<InlineField label="Note" value={person.ImpressionNote} onSave={(v) => saveField("ImpressionNote", v)} textarea placeholder="(click to add note)" />
-				<div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 5 }}>
-					<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 90, paddingTop: 6 }}>Tags</span>
-					<div style={{ flex: 1 }}>
-						<TagInput value={tags.map((t) => t.TagName)} allTags={allTagNames} onChange={saveTagsInline} onTagClick={onOpenTag} />
+
+				{/* Inline Text Fields — Now entirely self-contained and perfectly styled */}
+				<InlineField label="Address" value={person?.Address} onSave={(v) => saveField("Address", v)} placeholder="Set home address location..." />
+				<InlineField label="Bio note" value={person?.ImpressionNote} onSave={(v) => saveField("ImpressionNote", v)} textarea placeholder="Dossier context impressions..." />
+
+				{/* Tags Row */}
+				<div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: "24px" }}>
+					<span style={detailRowLabel}>
+						<i className="fa-solid fa-tags" style={{ width: 16, marginRight: 8 }}></i>
+						Tags
+					</span>
+					<div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+						<TagInput value={tags ? tags.map((t) => t?.TagName) : []} allTags={allTagNames || []} onChange={saveTagsInline} onTagClick={onOpenTag} />
 					</div>
 				</div>
 			</div>
@@ -574,11 +658,13 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 
 			{/* ── SPECIFICS ── */}
 			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={secTitle}>Specifics</div>
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+					<div style={secTitle}>
+						<i className="fa-solid fa-fingerprint"></i> Specifics
+					</div>
 					{!specAddOpen && (
-						<button onClick={() => setSpecAddOpen(true)} style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }}>
-							+ Add
+						<button onClick={() => setSpecAddOpen(true)} style={{ ...btnG, fontSize: "11px", padding: "3px 10px", borderRadius: "var(--radius-pill)" }}>
+							<i className="fa-solid fa-plus"></i> Add
 						</button>
 					)}
 				</div>
@@ -587,14 +673,19 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 
 			<div style={divider} />
 
-			{/* ── ORGANIZATION ── */}
-			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={secTitle}>Organizations / Employment</div>
-					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("org")}>
-						+ Add
+			{/* ── ORGANIZATION / AFFILIATIONS ── */}
+			<div style={{ marginBottom: 24 }}>
+				{/* 1. Header Row — Completely flush at 0px padding */}
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+					<div style={secTitle}>
+						<i className="fa-solid fa-sitemap"></i> Affiliations
+					</div>
+					<button style={{ ...btnG, fontSize: "11px", padding: "3px 10px", borderRadius: "var(--radius-pill)" }} onClick={() => setAdding("org")}>
+						<i className="fa-solid fa-plus"></i> Add
 					</button>
 				</div>
+
+				{/* Popups */}
 				{isAdding("org") && (
 					<OrgPopup
 						title="Add Organization"
@@ -606,32 +697,43 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 						onClose={stopAdding}
 					/>
 				)}
-				{orgHistory.map((o) => {
-					const org = o.OrgName || "—";
-					const role = o.Role || "";
-					const startYr = o.StartYear ? String(o.StartYear) : "";
-					const endYr = o.IsPresent ? "present" : o.EndYear ? String(o.EndYear) : "";
-					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
-					return (
-						<div key={o.OrgHistID}>
-							{isEditing("org", o.OrgHistID) ? (
-								<OrgPopup
-									title="Edit Organization"
-									orgs={lookups.orgs}
-									initial={{
-										orgName: o.OrgName || "",
-										Role: o.Role || "",
-										StartYear: o.StartYear ? String(o.StartYear) : "",
-										EndYear: o.EndYear ? String(o.EndYear) : "",
-										IsPresent: !!o.IsPresent,
+
+				{/* 2. Isolated Timeline Container — Only the rows are indented */}
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						paddingLeft: "8px",
+						position: "relative",
+						borderLeft: "2px solid rgba(255,255,255,0.06)",
+						marginLeft: "6px", // Aligns the line nicely right under the title icon
+						gap: "20px",
+						marginTop: "12px",
+					}}
+				>
+					{orgHistory.map((o) => {
+						const org = o.OrgName || "—"; // Fixed: Using your proper database column mapping
+						const role = o.Role || "";
+						const startYr = o.StartYear ? String(o.StartYear) : "";
+						const endYr = o.IsPresent ? "present" : o.EndYear ? String(o.EndYear) : "";
+						const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
+
+						return (
+							<div key={o.OrgHistID} style={{ position: "relative", paddingLeft: "16px" }}>
+								{/* Timeline node point dot */}
+								<div
+									style={{
+										position: "absolute",
+										left: "-13px",
+										top: "5px",
+										width: "8px",
+										height: "8px",
+										borderRadius: "50%",
+										background: o.IsPresent ? "var(--color-primary)" : "rgba(255,255,255,0.2)",
+										border: "2px solid var(--color-bg, #11131c)",
 									}}
-									onSave={async (v) => {
-										await orgUpdate(o.OrgHistID, v);
-										onReload();
-									}}
-									onClose={stopEditing}
 								/>
-							) : (
+
 								<HoverRow
 									onEdit={() => setEditingId({ type: "org", id: o.OrgHistID })}
 									onDelete={async () => {
@@ -639,29 +741,36 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 										onReload();
 									}}
 								>
+									{/* Downscaled typography context to match the rest of the layout smoothly */}
 									<div>
-										<strong style={{ color: "var(--color-text)" }}>{org}</strong>
-										{role && <span style={{ color: "var(--color-text-muted)" }}> ({role})</span>}
-										{years && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{years}</div>}
+										<div style={{ fontSize: "14px", fontWeight: "600", color: "var(--color-text)" }}>
+											{org} <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontWeight: "400" }}>({role})</span>
+										</div>
+										{years && <div style={{ fontSize: "12px", color: "var(--color-text-faint)", marginTop: "2px", fontFamily: "var(--font-mono)" }}>{years}</div>}
 									</div>
 								</HoverRow>
-							)}
-						</div>
-					);
-				})}
-				{orgHistory.length === 0 && !isAdding("org") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
+							</div>
+						);
+					})}
+
+					{orgHistory.length === 0 && !isAdding("org") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "13px", paddingLeft: "16px" }}>None</div>}
+				</div>
 			</div>
 
 			<div style={divider} />
 
 			{/* ── EDUCATION ── */}
-			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={secTitle}>Education</div>
-					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("edu")}>
-						+ Add
+			<div style={{ marginBottom: 24 }}>
+				{/* Header row — Flush with no indentation */}
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+					<div style={secTitle}>
+						<i className="fa-solid fa-graduation-cap"></i> Education
+					</div>
+					<button style={{ ...btnG, fontSize: "11px", padding: "3px 10px", borderRadius: "var(--radius-pill)" }} onClick={() => setAdding("edu")}>
+						<i className="fa-solid fa-plus"></i> Add
 					</button>
 				</div>
+
 				{isAdding("edu") && (
 					<EduPopup
 						title="Add Education"
@@ -674,78 +783,105 @@ export default function DetailTab({ person, tags, socialAccounts, eduHistory, or
 						onClose={stopAdding}
 					/>
 				)}
-				{eduHistory.map((e) => {
-					const inst = e.InstitutionName || "—";
-					const level = e.EduLevelName || "";
-					const startYr = e.StartYear ? String(e.StartYear) : "";
-					const endYr = e.IsPresent ? "present" : e.EndYear ? String(e.EndYear) : "";
-					const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
-					const extra = [e.Faculty, e.FieldOfStudy].filter(Boolean).join(" · ");
-					return (
-						<div key={e.EduHistID}>
-							{isEditing("edu", e.EduHistID) ? (
-								<EduPopup
-									title="Edit Education"
-									eduLevels={lookups.eduLevels}
-									institutions={lookups.institutions}
-									initial={{
-										institutionName: e.InstitutionName || "",
-										EduLevelID: e.EduLevelID ? String(e.EduLevelID) : "",
-										Faculty: e.Faculty || "",
-										FieldOfStudy: e.FieldOfStudy || "",
-										StartYear: e.StartYear ? String(e.StartYear) : "",
-										EndYear: e.EndYear ? String(e.EndYear) : "",
-										IsPresent: !!e.IsPresent,
+
+				{/* Timeline inner layout container block */}
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						paddingLeft: "8px",
+						position: "relative",
+						borderLeft: "2px solid rgba(255,255,255,0.06)",
+						marginLeft: "6px",
+						gap: "20px",
+						marginTop: "12px",
+					}}
+				>
+					{eduHistory.map((e) => {
+						const inst = e.InstitutionName || "—";
+						const level = e.EduLevelName || "";
+						const startYr = e.StartYear ? String(e.StartYear) : "";
+						const endYr = e.IsPresent ? "present" : e.EndYear ? String(e.EndYear) : "";
+						const years = startYr ? (endYr ? `${startYr} – ${endYr}` : startYr) : "";
+						const extra = [e.Faculty, e.FieldOfStudy].filter(Boolean).join(" · ");
+
+						return (
+							<div key={e.EduHistID} style={{ position: "relative", paddingLeft: "16px" }}>
+								{/* Timeline Node point dot indicator */}
+								<div
+									style={{
+										position: "absolute",
+										left: "-13px",
+										top: "5px",
+										width: "8px",
+										height: "8px",
+										borderRadius: "50%",
+										background: e.IsPresent ? "var(--color-primary)" : "rgba(255,255,255,0.2)",
+										border: "2px solid var(--color-panel)",
 									}}
-									onSave={async (v) => {
-										await eduUpdate(e.EduHistID, v);
-										onReload();
-									}}
-									onClose={stopEditing}
 								/>
-							) : (
-								<HoverRow
-									onEdit={() => setEditingId({ type: "edu", id: e.EduHistID })}
-									onDelete={async () => {
-										await eduDelete(e.EduHistID);
-										onReload();
-									}}
-								>
-									<div>
-										<strong style={{ color: "var(--color-text)" }}>{inst}</strong>
-										{level && (
-											<span
-												style={{
-													marginLeft: 6,
-													fontSize: "var(--font-size-xs)",
-													background: "var(--color-surface-3)",
-													padding: "1px 5px",
-													borderRadius: "var(--radius-sm)",
-													color: "var(--color-text-muted)",
-												}}
-											>
-												{level}
-											</span>
-										)}
-										{years && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{years}</div>}
-										{extra && <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{extra}</div>}
-									</div>
-								</HoverRow>
-							)}
-						</div>
-					);
-				})}
-				{eduHistory.length === 0 && !isAdding("edu") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>None</div>}
+
+								{isEditing("edu", e.EduHistID) ? (
+									<EduPopup
+										title="Edit Education"
+										eduLevels={lookups.eduLevels}
+										institutions={lookups.institutions}
+										initial={{
+											institutionName: e.InstitutionName || "",
+											EduLevelID: e.EduLevelID ? String(e.EduLevelID) : "",
+											Faculty: e.Faculty || "",
+											FieldOfStudy: e.FieldOfStudy || "",
+											StartYear: e.StartYear ? String(e.StartYear) : "",
+											EndYear: e.EndYear ? String(e.EndYear) : "",
+											IsPresent: !!e.IsPresent,
+										}}
+										onSave={async (v) => {
+											await eduUpdate(e.EduHistID, v);
+											onReload();
+										}}
+										onClose={stopEditing}
+									/>
+								) : (
+									<HoverRow
+										onEdit={() => setEditingId({ type: "edu", id: e.EduHistID })}
+										onDelete={async () => {
+											await eduDelete(e.EduHistID);
+											onReload();
+										}}
+									>
+										<div>
+											{/* Primary text header block matching organization styling structure */}
+											<div style={{ fontSize: "14px", fontWeight: "600", color: "#fff" }}>
+												{inst}
+												{level && <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontWeight: "400", marginLeft: "6px" }}>({level.toLowerCase()})</span>}
+											</div>
+
+											{/* Years track timeline detail */}
+											{years && <div style={{ fontSize: "12px", color: "var(--color-text-faint)", marginTop: "2px", fontFamily: "var(--font-mono)" }}>{years}</div>}
+
+											{/* Major / Department metadata string */}
+											{extra && <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "2px" }}>{extra}</div>}
+										</div>
+									</HoverRow>
+								)}
+							</div>
+						);
+					})}
+
+					{eduHistory.length === 0 && !isAdding("edu") && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "13px", paddingLeft: "16px" }}>None</div>}
+				</div>
 			</div>
 
 			<div style={divider} />
 
 			{/* ── SOCIALS ── */}
 			<div style={{ marginBottom: 16 }}>
-				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-					<div style={secTitle}>Socials</div>
-					<button style={{ ...btnG, fontSize: "var(--font-size-xs)", padding: "2px 8px" }} onClick={() => setAdding("social")}>
-						+ Add
+				<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+					<div style={secTitle}>
+						<i className="fa-solid fa-share-nodes"></i> Socials
+					</div>
+					<button style={{ ...btnG, fontSize: "11px", padding: "3px 10px", borderRadius: "var(--radius-pill)" }} onClick={() => setAdding("social")}>
+						<i className="fa-solid fa-plus"></i> Add
 					</button>
 				</div>
 				{isAdding("social") && (

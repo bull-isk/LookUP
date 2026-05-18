@@ -64,11 +64,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   personDeletePopulateTest: ()            => ipcRenderer.invoke('person:deletePopulateTest'),
   personImport:             (d)           => ipcRenderer.invoke('person:import', d),
 
-  openExternal:          (url)            => ipcRenderer.invoke('shell:openExternal', url),
-  lookupAddSocialPlatform:(name)          => ipcRenderer.invoke('lookup:addSocialPlatform', name),
-
-  lookupFindOrCreateInstitution:  (name) => ipcRenderer.invoke('lookup:findOrCreateInstitution', name),
-  lookupFindOrCreateOrganization: (name) => ipcRenderer.invoke('lookup:findOrCreateOrganization', name),
+  openExternal:            (url)          => ipcRenderer.invoke('lookup:openExternal', url),
+  lookupAddSocialPlatform: (name)         => ipcRenderer.invoke('lookup:addSocialPlatform', name),
+  lookupFindOrCreateInstitution:  (name)  => ipcRenderer.invoke('lookup:findOrCreateInstitution', name),
+  lookupFindOrCreateOrganization: (name)  => ipcRenderer.invoke('lookup:findOrCreateOrganization', name),
 
   mediaPick:    ()                   => ipcRenderer.invoke('media:pick'),
   mediaSetRole: (pid, mid, role)     => ipcRenderer.invoke('media:setRole', pid, mid, role),

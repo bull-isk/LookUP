@@ -248,7 +248,13 @@ function getBirthdayPersons() {
 		.prepare(
 			`
     SELECT p.PersonID, p.FullName, p.Nickname, p.Birthdate,
-           c.CategoryName, c.HexCode as CategoryColor
+           c.CategoryName, c.HexCode as CategoryColor,
+           (
+             SELECT m.Data FROM Media m
+             JOIN PersonMedia pm ON m.MediaID = pm.MediaID
+             WHERE pm.PersonID = p.PersonID AND pm.Role = 'primary'
+             LIMIT 1
+           ) AS PrimaryImage
     FROM Person p
     LEFT JOIN Category c ON p.CategoryID = c.CategoryID
     WHERE p.Birthdate IS NOT NULL AND p.Birthdate != ''
@@ -264,7 +270,13 @@ function getRecentlyUpdated(limit = 5) {
 		.prepare(
 			`
     SELECT p.PersonID, p.FullName, p.Nickname, p.LastUpdated,
-           c.CategoryName, c.HexCode as CategoryColor
+           c.CategoryName, c.HexCode as CategoryColor,
+           (
+             SELECT m.Data FROM Media m
+             JOIN PersonMedia pm ON m.MediaID = pm.MediaID
+             WHERE pm.PersonID = p.PersonID AND pm.Role = 'primary'
+             LIMIT 1
+           ) AS PrimaryImage
     FROM Person p
     LEFT JOIN Category c ON p.CategoryID = c.CategoryID
     WHERE p.LastUpdated IS NOT NULL
@@ -285,6 +297,12 @@ function getFavorites(limit = 5) {
     SELECT
       p.PersonID, p.FullName, p.Nickname,
       c.CategoryName, c.HexCode as CategoryColor,
+      (
+        SELECT m.Data FROM Media m
+        JOIN PersonMedia pm ON m.MediaID = pm.MediaID
+        WHERE pm.PersonID = p.PersonID AND pm.Role = 'primary'
+        LIMIT 1
+      ) AS PrimaryImage,
       (
         -- Core fields (each = 1 point)
         (CASE WHEN p.Nickname       IS NOT NULL AND p.Nickname       != '' THEN 1 ELSE 0 END) +

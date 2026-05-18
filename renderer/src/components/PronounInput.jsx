@@ -3,12 +3,14 @@ import { useState } from "react";
 import Chip from "./Chip";
 
 const sel = {
-	padding: "3px 6px",
+	padding: "2px 6px",
 	border: "1px solid var(--color-border)",
 	borderRadius: "var(--radius-sm)",
 	background: "var(--color-surface-2)",
 	color: "var(--color-text)",
 	fontSize: "var(--font-size-sm)",
+	height: "22px",
+	outline: "none",
 };
 
 export default function PronounInput({ value = [], allPronouns = [], onChange, onNewPronoun }) {
@@ -26,8 +28,6 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 	};
 	const remove = (id) => onChange(value.filter((x) => x !== id));
 
-	// Editing a pronoun chip: we don't actually rename the global pronoun row —
-	// instead we swap the ID: remove old, find-or-create new, add new.
 	const commitEdit = async (oldId) => {
 		const trimmed = editDraft.trim();
 		if (!trimmed) {
@@ -36,7 +36,6 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 		}
 		const existing = allPronouns.find((p) => p.Pronouns.toLowerCase() === trimmed.toLowerCase());
 		const newId = existing ? existing.PronounsID : await onNewPronoun(trimmed);
-		// Replace old ID with new ID (no-op if same)
 		if (newId !== oldId) {
 			onChange(value.map((id) => (id === oldId ? newId : id)).filter((v, i, arr) => arr.indexOf(v) === i));
 		}
@@ -68,9 +67,8 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 
 	return (
 		<div>
-			{/* Chips — no visible × (uses Chip hover overlay instead) */}
-			<div style={{ display: "flex", flexWrap: "wrap", marginBottom: 6, minHeight: 24 }}>
-				{selected.length === 0 && <span style={{ color: "var(--color-text-faint)", fontSize: "var(--font-size-sm)", fontStyle: "italic", paddingTop: 2 }}>None</span>}
+			<div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6, minHeight: 24, alignItems: "center" }}>
+				{selected.length === 0 && <span style={{ color: "var(--color-text-faint)", fontSize: "13px", fontStyle: "italic" }}>None</span>}
 				{selected.map((p) =>
 					editingId === p.PronounsID ? (
 						<Chip key={p.PronounsID} editing editValue={editDraft} onEditChange={setEditDraft} onEditCommit={() => commitEdit(p.PronounsID)} onEditCancel={() => setEditingId(null)} />
@@ -78,7 +76,6 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 						<Chip
 							key={p.PronounsID}
 							label={p.Pronouns}
-							// Pronouns have no click navigation — no onClick prop
 							onEdit={() => {
 								setEditDraft(p.Pronouns);
 								setEditingId(p.PronounsID);
@@ -89,7 +86,6 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 				)}
 			</div>
 
-			{/* Add from dropdown */}
 			{!adding ? (
 				<select value={selVal} onChange={handleSelect} style={sel}>
 					<option value="">+ Add pronoun…</option>
@@ -101,7 +97,7 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 					<option value="__new__">✏ Add new…</option>
 				</select>
 			) : (
-				<div style={{ display: "flex", gap: 6 }}>
+				<div style={{ display: "flex", gap: 4, alignItems: "center" }}>
 					<input
 						autoFocus
 						value={newText}
@@ -119,13 +115,17 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 					<button
 						onClick={commitNew}
 						style={{
-							padding: "2px 8px",
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							padding: "0 8px",
 							background: "var(--color-primary)",
 							color: "#fff",
 							border: "none",
 							borderRadius: "var(--radius-sm)",
 							cursor: "pointer",
 							fontSize: "var(--font-size-sm)",
+							height: "22px",
 						}}
 					>
 						Add
@@ -135,9 +135,20 @@ export default function PronounInput({ value = [], allPronouns = [], onChange, o
 							setAdding(false);
 							setNewText("");
 						}}
-						style={{ ...sel, cursor: "pointer" }}
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "22px",
+							height: "22px",
+							background: "transparent",
+							border: "1px solid var(--color-border)",
+							borderRadius: "var(--radius-sm)",
+							color: "var(--color-text-muted)",
+							cursor: "pointer",
+						}}
 					>
-						✕
+						<i className="fa-solid fa-xmark" style={{ fontSize: "10px" }}></i>
 					</button>
 				</div>
 			)}

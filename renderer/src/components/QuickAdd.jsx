@@ -12,41 +12,45 @@ const SECTIONS = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// ── Shared styles matching the app theme ─────────────────────────
+// ── Shared styles matching optimized design system rules ─────────────────────────
 const iStyle = {
 	width: "100%",
-	padding: "5px 8px",
+	padding: "6px 12px",
 	border: "1px solid var(--color-border)",
-	borderRadius: "var(--radius-sm)",
-	background: "var(--color-surface-2)",
+	borderRadius: "var(--radius-inner)",
+	background: "rgba(7, 8, 13, 0.6)",
 	color: "var(--color-text)",
-	marginTop: 4,
+	marginTop: 6,
 	fontFamily: "var(--font-mono)",
-	fontSize: "var(--font-size-base)",
+	fontSize: "13px",
+	transition: "var(--transition)",
 };
 const lbl = {
 	display: "block",
-	marginBottom: 10,
+	marginBottom: 12,
 	color: "var(--color-text-muted)",
-	fontSize: "var(--font-size-sm)",
+	fontSize: "13px",
 };
 const btnP = {
-	padding: "5px 16px",
+	padding: "6px 16px",
 	background: "var(--color-primary)",
 	color: "#fff",
 	border: "none",
-	borderRadius: "var(--radius-sm)",
+	borderRadius: "var(--radius-inner)",
 	cursor: "pointer",
-	fontFamily: "var(--font-mono)",
+	fontWeight: "600",
+	fontSize: "13px",
+	transition: "var(--transition)",
 };
 const btnG = {
-	padding: "5px 12px",
+	padding: "6px 14px",
 	background: "transparent",
 	border: "1px solid var(--color-border)",
-	borderRadius: "var(--radius-sm)",
+	borderRadius: "var(--radius-inner)",
 	color: "var(--color-text-muted)",
 	cursor: "pointer",
-	fontFamily: "var(--font-mono)",
+	fontSize: "13px",
+	transition: "var(--transition)",
 };
 
 export default function QuickAdd({ person, lookups, specificsTree, onSaved, onClose }) {
@@ -54,8 +58,9 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 	const [section, setSection] = useState(SECTIONS["Details"][0]);
 	const [form, setForm] = useState({});
 	const [saving, setSaving] = useState(false);
+
 	// Image state for Media section
-	const [imagePreview, setImagePreview] = useState(null); // dataUri
+	const [imagePreview, setImagePreview] = useState(null);
 	const [imageFilename, setImageFilename] = useState("");
 	const [dragOver, setDragOver] = useState(false);
 	const fileInputRef = useRef(null);
@@ -81,7 +86,6 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 	};
 
 	const handleBrowse = async () => {
-		// Use Electron's native picker
 		const picked = await api.mediaPick();
 		if (!picked?.length) return;
 		setImagePreview(picked[0].dataUri);
@@ -99,7 +103,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 		readImageFile(e.target.files[0]);
 	};
 
-	// ── Save ────────────────────────────────────────────────────
+	// ── Save action blocks ───────────────────────────────────────────
 	const handleSave = async () => {
 		setSaving(true);
 		try {
@@ -135,8 +139,6 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 			} else if (section === "Social Account") {
 				await api.socialCreate({ PersonID: pid, PlatformID: Number(form.PlatformID), AccountTag: form.AccountTag || "" });
 			} else if (section === "Specifics") {
-				const subId = await api.specificsFindOrCreateSub(form.SubName || "");
-				const ptId = await api.specificsFindOrCreatePoint(subId, form.PointName || "");
 				await api.specificsAddValue({ PersonID: pid, PointID: ptId, SpecificNote: form.SpecificNote || "" });
 			} else if (section === "Image") {
 				if (!imagePreview) {
@@ -160,7 +162,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 		}
 	};
 
-	// ── Form renderer ───────────────────────────────────────────
+	// ── Form structural blocks ───────────────────────────────────────────
 	const renderForm = () => {
 		const pid = person.PersonID;
 		const persons = (lookups.persons || []).filter((p) => p.PersonID !== pid);
@@ -170,7 +172,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 				<>
 					<label style={lbl}>
 						Quote
-						<textarea style={{ ...iStyle, height: 70, resize: "vertical" }} onChange={set("Quote")} />
+						<textarea style={{ ...iStyle, height: 74, resize: "vertical" }} onChange={set("Quote")} />
 					</label>
 					<label style={lbl}>
 						Date
@@ -184,11 +186,11 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 				<>
 					<label style={lbl}>
 						Quote
-						<textarea style={{ ...iStyle, height: 70, resize: "vertical" }} onChange={set("Quote")} />
+						<textarea style={{ ...iStyle, height: 74, resize: "vertical" }} onChange={set("Quote")} />
 					</label>
 					<label style={lbl}>
 						Said by (optional)
-						<select style={iStyle} onChange={set("SayerID")}>
+						<select style={{ ...iStyle, height: "34px", padding: "0 8px" }} onChange={set("SayerID")}>
 							<option value="">— anonymous —</option>
 							{persons.map((p) => (
 								<option key={p.PersonID} value={p.PersonID}>
@@ -208,7 +210,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 			return (
 				<label style={lbl}>
 					Note
-					<textarea style={{ ...iStyle, height: 90, resize: "vertical" }} onChange={set("Note")} />
+					<textarea style={{ ...iStyle, height: 110, resize: "vertical" }} onChange={set("Note")} />
 				</label>
 			);
 
@@ -221,7 +223,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</label>
 					<label style={lbl}>
 						Level
-						<select style={iStyle} onChange={set("EduLevelID")}>
+						<select style={{ ...iStyle, height: "34px", padding: "0 8px" }} onChange={set("EduLevelID")}>
 							<option value="">—</option>
 							{(lookups.eduLevels || []).map((e) => (
 								<option key={e.EduLevelID} value={e.EduLevelID}>
@@ -238,7 +240,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 						Faculty
 						<input style={iStyle} onChange={set("Faculty")} />
 					</label>
-					<div style={{ display: "flex", gap: 8 }}>
+					<div style={{ display: "flex", gap: 12 }}>
 						<label style={{ ...lbl, flex: 1 }}>
 							Start Year
 							<input type="number" style={iStyle} onChange={set("StartYear")} />
@@ -248,8 +250,8 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 							<input type="number" style={iStyle} onChange={set("EndYear")} />
 						</label>
 					</div>
-					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8 }}>
-						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} />
+					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", userSelect: "none" }}>
+						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} style={{ cursor: "pointer" }} />
 						Currently enrolled
 					</label>
 				</>
@@ -266,7 +268,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 						Role / Division
 						<input style={iStyle} onChange={set("Role")} />
 					</label>
-					<div style={{ display: "flex", gap: 8 }}>
+					<div style={{ display: "flex", gap: 12 }}>
 						<label style={{ ...lbl, flex: 1 }}>
 							Start Year
 							<input type="number" style={iStyle} onChange={set("StartYear")} />
@@ -276,8 +278,8 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 							<input type="number" style={iStyle} onChange={set("EndYear")} />
 						</label>
 					</div>
-					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8 }}>
-						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} />
+					<label style={{ ...lbl, display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", userSelect: "none" }}>
+						<input type="checkbox" onChange={(e) => setForm((f) => ({ ...f, IsPresent: e.target.checked }))} style={{ cursor: "pointer" }} />
 						Currently working here
 					</label>
 				</>
@@ -288,7 +290,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 				<>
 					<label style={lbl}>
 						Platform
-						<select style={iStyle} onChange={set("PlatformID")}>
+						<select style={{ ...iStyle, height: "34px", padding: "0 8px" }} onChange={set("PlatformID")}>
 							<option value="">—</option>
 							{(lookups.platforms || []).map((p) => (
 								<option key={p.PlatformID} value={p.PlatformID}>
@@ -309,7 +311,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 				<>
 					<label style={lbl}>
 						Category
-						<select style={iStyle} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))}>
+						<select style={{ ...iStyle, height: "34px", padding: "0 8px" }} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))}>
 							<option value="">—</option>
 							{specificsTree.map((s) => (
 								<option key={s.SubSpecificsID} value={s.SubName}>
@@ -322,7 +324,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					{form.SubName === "__new__" && (
 						<label style={lbl}>
 							New category name
-							<input style={iStyle} onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))} />
+							<input style={iStyle} autoFocus onChange={(e) => setForm((f) => ({ ...f, SubName: e.target.value }))} />
 						</label>
 					)}
 					<label style={lbl}>
@@ -339,7 +341,6 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 		if (section === "Image")
 			return (
 				<>
-					{/* Drop zone */}
 					<div
 						onDragOver={(e) => {
 							e.preventDefault();
@@ -350,27 +351,27 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 						onClick={() => fileInputRef.current?.click()}
 						style={{
 							border: `2px dashed ${dragOver ? "var(--color-accent)" : "var(--color-border)"}`,
-							borderRadius: "var(--radius-md)",
-							background: dragOver ? "var(--color-hover)" : "var(--color-surface-2)",
-							padding: 16,
+							borderRadius: "var(--radius-inner)",
+							background: dragOver ? "rgba(99, 102, 241, 0.05)" : "rgba(255, 255, 255, 0.01)",
+							padding: 24,
 							textAlign: "center",
 							cursor: "pointer",
-							marginBottom: 12,
-							minHeight: 120,
+							marginBottom: 14,
+							minHeight: 140,
 							display: "flex",
 							flexDirection: "column",
 							alignItems: "center",
 							justifyContent: "center",
 							gap: 8,
-							transition: "border-color 0.15s, background 0.15s",
+							transition: "var(--transition)",
 						}}
 					>
 						{imagePreview ? (
-							<img src={imagePreview} alt="preview" style={{ maxHeight: 100, maxWidth: "100%", objectFit: "contain", borderRadius: "var(--radius-sm)" }} />
+							<img src={imagePreview} alt="preview" style={{ maxHeight: 110, maxWidth: "100%", objectFit: "contain", borderRadius: "var(--radius-sm)" }} />
 						) : (
 							<>
-								<div style={{ fontSize: 28, opacity: 0.5 }}>🖼</div>
-								<div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Drop image here, or click to browse</div>
+								<i className="fa-solid fa-images" style={{ fontSize: 26, color: "var(--color-text-muted)", opacity: 0.6 }}></i>
+								<div style={{ color: "var(--color-text-muted)", fontSize: "13px" }}>Drop image here, or click to browse</div>
 							</>
 						)}
 					</div>
@@ -391,46 +392,66 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 	};
 
 	return (
-		<div onClick={onClose} style={{ position: "fixed", inset: 0, background: "var(--overlay-bg)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+		// Fixed backdrop curtain tracking variables
+		<div
+			onClick={onClose}
+			style={{
+				position: "fixed",
+				inset: 0,
+				background: "rgba(3, 4, 7, 0.75)",
+				backdropFilter: "blur(4px)",
+				webkitBackdropFilter: "blur(4px)",
+				zIndex: 1000,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+			}}
+		>
 			<div
 				onClick={(e) => e.stopPropagation()}
 				style={{
-					background: "var(--color-surface)",
-					border: "1px solid var(--color-border-2)",
+					background: "var(--color-surface, #11131c)",
+					border: "1px solid var(--color-border-2, rgba(255, 255, 255, 0.08))",
 					borderRadius: "var(--radius-lg)",
-					boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+					boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
 					width: 480,
-					maxHeight: "82vh",
+					maxHeight: "85vh",
 					display: "flex",
 					flexDirection: "column",
 					overflow: "hidden",
+					animation: "modalAppear 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
 				}}
 			>
 				{/* Header */}
-				<div style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-					<span style={{ fontWeight: "bold", color: "var(--color-text)", fontSize: "var(--font-size-base)" }}>Quick Add — {person.FullName}</span>
-					<button onClick={onClose} style={{ border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "var(--color-text-muted)", lineHeight: 1 }}>
-						✕
+				<div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+					<span style={{ fontWeight: "600", color: "var(--color-text)", fontSize: "15px" }}>Quick Add — {person.FullName}</span>
+					<button
+						onClick={onClose}
+						style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", color: "var(--color-text-faint)", display: "flex", alignItems: "center" }}
+						onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text)")}
+						onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-faint)")}
+					>
+						<i className="fa-solid fa-xmark"></i>
 					</button>
 				</div>
 
 				{/* Page tabs */}
-				<div style={{ display: "flex", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
+				<div style={{ display: "flex", borderBottom: "1px solid var(--color-border)", flexShrink: 0, background: "rgba(0, 0, 0, 0.1)" }}>
 					{PAGES.map((p) => (
 						<button
 							key={p}
 							onClick={() => setPage(p)}
 							style={{
 								flex: 1,
-								padding: "7px 0",
+								padding: "10px 0",
 								border: "none",
 								borderBottom: page === p ? "2px solid var(--color-accent)" : "2px solid transparent",
 								background: "transparent",
 								color: page === p ? "var(--color-accent)" : "var(--color-text-muted)",
-								fontWeight: page === p ? "bold" : "normal",
+								fontWeight: page === p ? "600" : "400",
 								cursor: "pointer",
-								fontFamily: "var(--font-mono)",
-								fontSize: "var(--font-size-sm)",
+								fontSize: "13px",
+								transition: "var(--transition)",
 							}}
 						>
 							{p}
@@ -438,8 +459,8 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					))}
 				</div>
 
-				{/* Section dropdown */}
-				<div style={{ padding: "8px 16px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
+				{/* Section selection drop list */}
+				<div style={{ padding: "12px 20px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
 					<select
 						value={section}
 						onChange={(e) => {
@@ -448,7 +469,7 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 							setImagePreview(null);
 							setImageFilename("");
 						}}
-						style={{ ...iStyle, marginTop: 0 }}
+						style={{ ...iStyle, marginTop: 0, height: "34px", padding: "0 8px" }}
 					>
 						{SECTIONS[page].map((s) => (
 							<option key={s} value={s}>
@@ -458,11 +479,11 @@ export default function QuickAdd({ person, lookups, specificsTree, onSaved, onCl
 					</select>
 				</div>
 
-				{/* Form */}
-				<div style={{ padding: "14px 16px", overflowY: "auto", flex: 1 }}>{renderForm()}</div>
+				{/* Main scrollable form lane wrapper */}
+				<div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>{renderForm()}</div>
 
-				{/* Footer */}
-				<div style={{ padding: "10px 16px", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
+				{/* Actions Footer */}
+				<div style={{ padding: "12px 20px", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0, background: "rgba(0, 0, 0, 0.1)" }}>
 					<button onClick={onClose} style={btnG}>
 						Cancel
 					</button>

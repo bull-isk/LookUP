@@ -1,4 +1,3 @@
-// renderer/src/components/SpecificsEditor.jsx
 import { useState } from "react";
 import Chip from "./Chip";
 
@@ -7,15 +6,16 @@ const api = window.electronAPI;
 const DEFAULT_CATS = ["Preferences", "Interests", "Characteristics", "Habits"];
 
 const inp = {
-	padding: "4px 6px",
+	padding: "6px 12px",
 	border: "1px solid var(--color-border)",
-	borderRadius: "var(--radius-sm)",
-	background: "var(--color-surface-2)",
+	borderRadius: "var(--radius-inner)",
+	background: "rgba(7, 8, 13, 0.6)",
 	color: "var(--color-text)",
-	fontSize: "var(--font-size-sm)",
+	fontSize: "13px",
+	transition: "var(--transition)",
 };
 
-// ── Inline add form (shown below section header) ──────────────────
+// ── Inline add form ────────────────────────────────────────────────
 function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 	const allCatNames = tree.map((s) => s.SubName);
 	const ordered = [...DEFAULT_CATS.filter((d) => allCatNames.includes(d)), ...allCatNames.filter((n) => !DEFAULT_CATS.includes(n))];
@@ -26,7 +26,6 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 	const [valInput, setValInput] = useState("");
 	const [showSug, setShowSug] = useState(false);
 
-	// Auto-fill category when sub-specific matches an existing point
 	const handleSubChange = (val) => {
 		setSubInput(val);
 		setShowSug(true);
@@ -39,7 +38,6 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 		}
 	};
 
-	// Conflict check: if chosen sub exists under a different category, reject
 	const getConflict = () => {
 		if (!catInput || !subInput.trim()) return null;
 		const matchingSub = tree.find((s) => s.points.some((p) => p.PointName.toLowerCase() === subInput.trim().toLowerCase()));
@@ -61,7 +59,6 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 		const val = valInput.trim();
 		if (!cat || !sub || !val) return;
 
-		// Conflict: sub-specific belongs to a different category → revert to correct one
 		const conflict = getConflict();
 		const resolvedCat = conflict || cat;
 
@@ -75,13 +72,12 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 	const conflict = getConflict();
 
 	return (
-		<div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end", padding: "8px 0", marginBottom: 8, borderBottom: "1px solid var(--color-border)" }}>
-			{/* Category */}
-			<div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 120 }}>
-				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>Category</span>
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", padding: "12px 0", marginBottom: 16, borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 140 }}>
+				<span style={{ fontSize: "11px", fontWeight: "600", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>Category</span>
 				{!catNew ? (
 					<select
-						style={{ ...inp, minWidth: 120 }}
+						style={{ ...inp, width: "100%", height: "32px", padding: "0 8px" }}
 						value={catInput}
 						onChange={(e) => {
 							if (e.target.value === "__new__") {
@@ -99,11 +95,11 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 						<option value="__new__">+ New…</option>
 					</select>
 				) : (
-					<div style={{ display: "flex", gap: 4 }}>
+					<div style={{ display: "flex", gap: 4, height: "32px" }}>
 						<input
 							autoFocus
-							style={{ ...inp, width: 100 }}
-							placeholder="Category name"
+							style={{ ...inp, flex: 1, padding: "0 8px" }}
+							placeholder="New name..."
 							value={catInput}
 							onChange={(e) => setCatInput(e.target.value)}
 							onKeyDown={(e) => {
@@ -119,10 +115,10 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 								setCatInput("");
 							}}
 							style={{
-								padding: "2px 5px",
+								padding: "0 8px",
 								background: "transparent",
 								border: "1px solid var(--color-border)",
-								borderRadius: "var(--radius-sm)",
+								borderRadius: "var(--radius-inner)",
 								color: "var(--color-text-muted)",
 								cursor: "pointer",
 							}}
@@ -133,14 +129,13 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 				)}
 			</div>
 
-			{/* Sub-specific with suggestions */}
-			<div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 130, position: "relative" }}>
-				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 140, position: "relative" }}>
+				<span style={{ fontSize: "11px", fontWeight: "600", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
 					Sub-specific
-					{conflict && <span style={{ color: "var(--color-danger)", marginLeft: 4 }}>→ will use "{conflict}"</span>}
+					{conflict && <span style={{ color: "var(--color-danger)", marginLeft: 4 }}>→ "{conflict}"</span>}
 				</span>
 				<input
-					style={{ ...inp, width: 130 }}
+					style={{ ...inp, width: "100%", height: "32px", padding: "0 8px" }}
 					placeholder="e.g. Food, Hobby…"
 					value={subInput}
 					onChange={(e) => handleSubChange(e.target.value)}
@@ -154,12 +149,13 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 							top: "100%",
 							left: 0,
 							zIndex: 50,
-							minWidth: 130,
+							width: "100%",
 							background: "var(--color-surface)",
 							border: "1px solid var(--color-border)",
-							borderRadius: "var(--radius-sm)",
-							marginTop: 2,
+							borderRadius: "var(--radius-inner)",
+							marginTop: 4,
 							overflow: "hidden",
+							boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
 						}}
 					>
 						{pointSuggestions.slice(0, 5).map((s) => (
@@ -169,7 +165,7 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 									setSubInput(s);
 									setShowSug(false);
 								}}
-								style={{ padding: "4px 8px", cursor: "pointer", fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}
+								style={{ padding: "6px 10px", cursor: "pointer", fontSize: "13px", color: "var(--color-text)" }}
 								onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-hover)")}
 								onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
 							>
@@ -180,11 +176,10 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 				)}
 			</div>
 
-			{/* Value */}
-			<div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 100 }}>
-				<span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>Value</span>
+			<div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 120 }}>
+				<span style={{ fontSize: "11px", fontWeight: "600", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>Value</span>
 				<input
-					style={{ ...inp, width: "100%" }}
+					style={{ ...inp, width: "100%", height: "32px", padding: "0 8px" }}
 					placeholder="e.g. Mie Ayam…"
 					value={valInput}
 					onChange={(e) => setValInput(e.target.value)}
@@ -195,19 +190,32 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 				/>
 			</div>
 
-			<div style={{ display: "flex", gap: 6 }}>
-				<button onClick={handleSave} style={{ padding: "4px 12px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
+			<div style={{ display: "flex", gap: 6, height: "32px" }}>
+				<button
+					onClick={handleSave}
+					style={{
+						padding: "0 14px",
+						background: "var(--color-primary)",
+						color: "#fff",
+						border: "none",
+						borderRadius: "var(--radius-inner)",
+						cursor: "pointer",
+						fontWeight: "600",
+						fontSize: "12px",
+					}}
+				>
 					Add
 				</button>
 				<button
 					onClick={onClose}
 					style={{
-						padding: "4px 8px",
-						background: "transparent",
+						padding: "0 12px",
+						background: "rgba(255,255,255,0.03)",
 						border: "1px solid var(--color-border)",
-						borderRadius: "var(--radius-sm)",
+						borderRadius: "var(--radius-inner)",
 						color: "var(--color-text-muted)",
 						cursor: "pointer",
+						fontSize: "12px",
 					}}
 				>
 					Cancel
@@ -217,7 +225,7 @@ function InlineAddForm({ tree, personId, preselectedCat, onDone, onClose }) {
 	);
 }
 
-// ── Point row: label + chips + hover "+ Add" ──────────────────────
+// ── Point row: label + chips ───────────────────────────────────────
 function PointRow({ pt, personId, onReload }) {
 	const [rowHovered, setRowHovered] = useState(false);
 	const [addOpen, setAddOpen] = useState(false);
@@ -244,12 +252,26 @@ function PointRow({ pt, personId, onReload }) {
 	};
 
 	return (
-		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4, paddingLeft: 8 }}>
-			{/* Point label */}
-			<span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", minWidth: 80, paddingTop: 3, flexShrink: 0 }}>{pt.PointName}</span>
+		<div onMouseEnter={() => setRowHovered(true)} onMouseLeave={() => setRowHovered(false)} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: "26px" }}>
+			{/* Design Spec: Left Key label with nested colon alignment structure */}
+			<span
+				style={{
+					color: "var(--color-text-muted)",
+					fontSize: "13px",
+					fontWeight: "500",
+					fontFamily: "var(--font-mono)",
+					width: "90px", // Snug spacing matching figma specs
+					display: "inline-flex",
+					justifyContent: "space-between",
+					flexShrink: 0,
+				}}
+			>
+				<span>{pt.PointName}</span>
+				<span style={{ marginRight: "4px", opacity: 0.5 }}>:</span>
+			</span>
 
-			{/* Values as chips */}
-			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+			{/* Value items and chips */}
+			<div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
 				{pt.values.map((v) =>
 					editingId === v.SpecificsID ? (
 						<Chip key={v.SpecificsID} editing editValue={editDraft} onEditChange={setEditDraft} onEditCommit={() => commitEdit(v.SpecificsID)} onEditCancel={() => setEditingId(null)} />
@@ -269,7 +291,6 @@ function PointRow({ pt, personId, onReload }) {
 					),
 				)}
 
-				{/* Inline add value */}
 				{addOpen ? (
 					<span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
 						<input
@@ -290,11 +311,23 @@ function PointRow({ pt, personId, onReload }) {
 								}, 150)
 							}
 							placeholder="value…"
-							style={{ ...inp, width: 90, padding: "2px 5px" }}
+							style={{ ...inp, width: 90, padding: "2px 6px", height: "22px", fontSize: "12px" }}
 						/>
 						<button
 							onClick={commitAdd}
-							style={{ padding: "1px 5px", background: "var(--color-primary)", color: "var(--color-text-on-primary)", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 11 }}
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								justifyContent: "center",
+								width: "22px",
+								height: "22px",
+								background: "var(--color-primary)",
+								color: "#fff",
+								border: "none",
+								borderRadius: "var(--radius-sm)",
+								cursor: "pointer",
+								fontSize: 10,
+							}}
 						>
 							✓
 						</button>
@@ -307,33 +340,47 @@ function PointRow({ pt, personId, onReload }) {
 	);
 }
 
-// ── Main export ───────────────────────────────────────────────────
+// ── Main export ────────────────────────────────────────────────────
 export default function SpecificsEditor({ specifics, tree, personId, onReload, addOpen = false, onAddClose }) {
-	// No internal addOpen state — it's controlled by parent
-
 	return (
 		<div>
 			{addOpen && <InlineAddForm tree={tree} personId={personId} onDone={onReload} onClose={onAddClose} />}
 
-			{specifics.length === 0 && !addOpen && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "var(--font-size-sm)" }}>No specifics yet.</div>}
+			{specifics.length === 0 && !addOpen && <div style={{ color: "var(--color-text-faint)", fontStyle: "italic", fontSize: "13px", paddingLeft: "16px" }}>No specifics yet.</div>}
 
 			{specifics.map((sub) => (
-				<div key={sub.SubSpecificsID} style={{ marginBottom: 12 }}>
+				// Indented container section wrapping the category card group as an integrated block
+				<div
+					key={sub.SubSpecificsID}
+					style={{
+						marginLeft: "16px",
+						marginBottom: 16,
+						display: "flex",
+						flexDirection: "column",
+						gap: "4px",
+					}}
+				>
+					{/* Category Header Title */}
 					<div
 						style={{
-							fontSize: "var(--font-size-xs)",
-							fontWeight: "bold",
-							textTransform: "uppercase",
-							letterSpacing: 1,
-							color: "var(--color-accent)",
-							marginBottom: 4,
+							fontSize: "12px",
+							fontWeight: "700",
+							textTransform: "capitalize", // Capitalize style format matching your spec profile cards
+							color: "var(--color-text)",
+							opacity: 0.9,
+							marginTop: "4px",
+							marginBottom: "4px",
 						}}
 					>
 						{sub.SubName}
 					</div>
-					{sub.points.map((pt) => (
-						<PointRow key={pt.PointID} pt={pt} personId={personId} onReload={onReload} />
-					))}
+
+					{/* Key-Value Attribute Rows container block */}
+					<div style={{ display: "flex", flexDirection: "column", gap: "2px", paddingLeft: "4px" }}>
+						{sub.points.map((pt) => (
+							<PointRow key={pt.PointID} pt={pt} personId={personId} onReload={onReload} />
+						))}
+					</div>
 				</div>
 			))}
 		</div>

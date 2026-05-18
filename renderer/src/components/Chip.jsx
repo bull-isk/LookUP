@@ -12,19 +12,31 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 				style={{
 					display: "inline-flex",
 					alignItems: "center",
+					gap: "4px",
 					padding: "2px 8px",
 					borderRadius: "var(--radius-sm)",
-					fontSize: "var(--font-size-sm)",
+					fontSize: "12px",
 					cursor: "pointer",
 					border: "1px dashed var(--color-border)",
-					color: "var(--color-text-faint)",
-					background: "transparent",
+					color: "var(--color-text-muted)",
+					background: "rgba(255, 255, 255, 0.01)",
 					marginRight: 4,
 					marginBottom: 4,
 					userSelect: "none",
+					transition: "var(--transition)",
+				}}
+				onMouseEnter={(e) => {
+					e.currentTarget.style.borderColor = "var(--color-accent)";
+					e.currentTarget.style.color = "var(--color-text)";
+					e.currentTarget.style.background = "rgba(99, 102, 241, 0.05)";
+				}}
+				onMouseLeave={(e) => {
+					e.currentTarget.style.borderColor = "var(--color-border)";
+					e.currentTarget.style.color = "var(--color-text-muted)";
+					e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)";
 				}}
 			>
-				+ Add
+				<i className="fa-solid fa-plus" style={{ fontSize: "10px", opacity: 0.7 }}></i> Add
 			</span>
 		);
 	}
@@ -42,50 +54,55 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 						if (e.key === "Escape") onEditCancel?.();
 					}}
 					style={{
-						padding: "2px 6px",
+						padding: "2px 8px",
 						border: "1px solid var(--color-accent)",
 						borderRadius: "var(--radius-sm)",
 						background: "var(--color-surface-2)",
 						color: "var(--color-text)",
-						fontSize: "var(--font-size-sm)",
+						fontSize: "12px",
 						width: 110,
+						height: "22px",
 					}}
 				/>
 				<button
 					onClick={onEditCommit}
 					style={{
-						padding: "1px 5px",
+						display: "inline-flex",
+						alignItems: "center",
+						justifyContent: "center",
+						width: "22px",
+						height: "22px",
 						background: "var(--color-primary)",
-						color: "var(--color-text-on-primary)",
+						color: "#fff",
 						border: "none",
 						borderRadius: "var(--radius-sm)",
 						cursor: "pointer",
-						fontSize: "var(--font-size-xs)",
 					}}
 				>
-					✓
+					<i className="fa-solid fa-check" style={{ fontSize: "10px" }}></i>
 				</button>
 				<button
 					onClick={onEditCancel}
 					style={{
-						padding: "1px 4px",
+						display: "inline-flex",
+						alignItems: "center",
+						justifyContent: "center",
+						width: "22px",
+						height: "22px",
 						background: "transparent",
 						border: "1px solid var(--color-border)",
 						borderRadius: "var(--radius-sm)",
 						color: "var(--color-text-muted)",
 						cursor: "pointer",
-						fontSize: "var(--font-size-xs)",
 					}}
 				>
-					✕
+					<i className="fa-solid fa-xmark" style={{ fontSize: "10px" }}></i>
 				</button>
 			</span>
 		);
 	}
 
 	// ── Normal chip with stable hover overlay ──────────────────────
-	// Key fix: a transparent "bridge" div fills the gap between chip and overlay.
-	// This keeps the outer container hovered even when the cursor is in the gap.
 	return (
 		<span
 			onMouseEnter={() => setHovered(true)}
@@ -98,24 +115,22 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 				style={{
 					display: "inline-flex",
 					alignItems: "center",
-					background: "var(--color-surface-3)",
+					background: hovered ? "var(--color-surface-3)" : "rgba(255, 255, 255, 0.03)",
 					color: "var(--color-text)",
 					padding: "2px 8px",
 					borderRadius: "var(--radius-sm)",
-					fontSize: "var(--font-size-sm)",
+					fontSize: "12px",
 					cursor: onClick ? "pointer" : "default",
 					userSelect: "none",
-					border: hovered && onClick ? "1px solid var(--color-accent)" : "1px solid transparent",
-					transition: "border-color 0.1s",
+					border: "1px solid var(--color-border)",
+					transition: "var(--transition)",
 					whiteSpace: "nowrap",
 				}}
 			>
 				{label}
 			</span>
 
-			{/* Transparent bridge: fills gap between chip and overlay.
-          Width = gap (4px) + overlay width (~52px). Zero height, invisible.
-          Keeps the outer span "hovered" while cursor moves rightward. */}
+			{/* Transparent bridge element layer */}
 			{hovered && (
 				<span
 					style={{
@@ -123,28 +138,28 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 						left: "100%",
 						top: 0,
 						bottom: 0,
-						width: 60, // covers gap + overlay
-						background: "transparent", // invisible
-						zIndex: 19, // under overlay (zIndex:20)
+						width: 60,
+						background: "transparent",
+						zIndex: 19,
 					}}
 				/>
 			)}
 
-			{/* Overlay: Edit + Delete buttons */}
+			{/* Hover Floating Actions Menu Overlay */}
 			{hovered && (
 				<span
 					style={{
 						position: "absolute",
-						left: "calc(100% + 3px)",
+						left: "calc(100% + 4px)",
 						top: "50%",
 						transform: "translateY(-50%)",
 						display: "inline-flex",
-						gap: 2,
+						gap: 1,
 						background: "var(--color-surface)",
-						border: "1px solid var(--color-border)",
+						border: "1px solid var(--color-border-2)",
 						borderRadius: "var(--radius-sm)",
-						padding: "2px 3px",
-						boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+						padding: "2px",
+						boxShadow: "0 4px 12px rgba(0,0,0,0.6)",
 						zIndex: 20,
 						whiteSpace: "nowrap",
 					}}
@@ -154,20 +169,58 @@ export default function Chip({ label, onClick, onEdit, onDelete, editing = false
 							e.stopPropagation();
 							onEdit?.();
 						}}
-						style={{ padding: "1px 5px", background: "transparent", border: "none", color: "var(--color-text-muted)", cursor: "pointer", fontSize: 11 }}
-						title="Edit"
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "20px",
+							height: "20px",
+							background: "transparent",
+							border: "none",
+							color: "var(--color-text-muted)",
+							cursor: "pointer",
+							borderRadius: "3px",
+							transition: "var(--transition)",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "var(--color-hover)";
+							e.currentTarget.style.color = "var(--color-text)";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+							e.currentTarget.style.color = "var(--color-text-muted)";
+						}}
+						title="Edit Value"
 					>
-						✏
+						<i className="fa-solid fa-pen" style={{ fontSize: "10px" }}></i>
 					</button>
 					<button
 						onClick={(e) => {
 							e.stopPropagation();
 							onDelete?.();
 						}}
-						style={{ padding: "1px 5px", background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: 11 }}
-						title="Delete"
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "20px",
+							height: "20px",
+							background: "transparent",
+							border: "none",
+							color: "var(--color-danger)",
+							cursor: "pointer",
+							borderRadius: "3px",
+							transition: "var(--transition)",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+						}}
+						title="Delete Value"
 					>
-						✕
+						<i className="fa-solid fa-trash" style={{ fontSize: "10px" }}></i>
 					</button>
 				</span>
 			)}

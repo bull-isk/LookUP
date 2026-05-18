@@ -1,5 +1,5 @@
 // electron/ipc/lookup.handlers.js
-const { ipcMain } = require("electron");
+const { ipcMain, shell } = require("electron");
 const repo = require("../../db/repositories/lookup.repo");
 
 module.exports = function registerLookupHandlers() {
@@ -19,6 +19,10 @@ module.exports = function registerLookupHandlers() {
 	ipcMain.handle("lookup:findOrCreateInstitution", (_, name) => repo.findOrCreateInstitution(name));
 	ipcMain.handle("lookup:findOrCreateOrganization", (_, name) => repo.findOrCreateOrganization(name));
 
-	ipcMain.handle("ipcMain:openExternal", (_, url) => shell.openExternal(url));
-	ipcMain.handle('lookup:addSocialPlatform', (_, name) => repo.addSocialPlatform(name));
+	ipcMain.handle("lookup:openExternal", async (_, url) => {
+		if (url) {
+			await shell.openExternal(url);
+		}
+	});
+	ipcMain.handle("lookup:addSocialPlatform", (_, name) => repo.addSocialPlatform(name));
 };

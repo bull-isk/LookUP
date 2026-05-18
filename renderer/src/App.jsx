@@ -1,4 +1,4 @@
-// renderer/src/App.jsx — REPLACE ENTIRELY
+// renderer/src/App.jsx
 import { useState, useEffect, useCallback } from "react";
 import { personList } from "./api/bridge";
 import PersonDetail from "./pages/PersonDetail";
@@ -9,10 +9,10 @@ import TagsPage from "./pages/TagsPage";
 import SearchPopup from "./components/SearchPopup";
 
 const NAV_ITEMS = [
-	{ id: "home", label: "🏠 Home" },
-	{ id: "people", label: "👥 People" },
-	{ id: "birthdays", label: "🎂 Birthdays" },
-	{ id: "tags", label: "🏷 Tags" },
+	{ id: "home", label: "Home", icon: "fa-solid fa-house" },
+	{ id: "people", label: "People", icon: "fa-solid fa-user-group" },
+	{ id: "birthdays", label: "Birthdays", icon: "fa-solid fa-cake-candles" },
+	{ id: "tags", label: "Tags", icon: "fa-solid fa-tag" },
 ];
 
 export default function App() {
@@ -21,7 +21,6 @@ export default function App() {
 	const [selectedId, setSelectedId] = useState(null);
 	const [creating, setCreating] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
-	// Phase C fix: tag name to open drill-down immediately in TagsPage
 	const [initialTagName, setInitialTagName] = useState(null);
 
 	const reloadPeople = useCallback(() => personList().then(setPeople), []);
@@ -48,13 +47,11 @@ export default function App() {
 		setSearchOpen(false);
 	}, []);
 
-	// Called from TagInput chip click — navigate directly to tag drill-down
 	const openTag = useCallback((tagName) => {
 		setInitialTagName(tagName);
 		setNavView("tags");
 	}, []);
 
-	// When manually clicking the Tags nav item, clear any preselected tag
 	const handleNavClick = (itemId) => {
 		if (itemId === "tags") setInitialTagName(null);
 		setNavView(itemId);
@@ -75,123 +72,254 @@ export default function App() {
 		<div style={{ display: "flex", height: "100vh", overflow: "hidden", color: "var(--color-text)", background: "var(--color-bg)" }}>
 			{searchOpen && <SearchPopup onSelect={openPerson} onClose={() => setSearchOpen(false)} />}
 
-			{/* Nav sidebar */}
-			<div style={{ width: "var(--nav-width)", borderRight: "1px solid var(--color-border)", display: "flex", flexDirection: "column", background: "var(--color-surface)", flexShrink: 0 }}>
-				<div style={{ padding: "10px 8px 6px", fontWeight: "bold", fontSize: 14, borderBottom: "1px solid var(--color-border)" }}>LookUP!</div>
-				{NAV_ITEMS.map((item) => (
-					<div
-						key={item.id}
-						onClick={() => handleNavClick(item.id)}
-						style={{
-							padding: "9px 12px",
-							cursor: "pointer",
-							userSelect: "none",
-							background: navView === item.id ? "var(--color-active)" : "transparent",
-							color: navView === item.id ? "var(--color-text-on-primary)" : "var(--color-text)",
-							borderLeft: navView === item.id ? "3px solid var(--color-accent)" : "3px solid transparent",
-						}}
-					>
-						{item.label}
-					</div>
-				))}
-				<div style={{ marginTop: "auto", padding: "8px", fontSize: "var(--font-size-xs)", color: "var(--color-text-faint)", borderTop: "1px solid var(--color-border)" }}>Ctrl+F search</div>
+			{/* Indigo Sidebar Controller */}
+			<div style={{ width: "var(--nav-width)", borderRight: "1px solid var(--color-border)", display: "flex", flexDirection: "column", background: "#090a12", flexShrink: 0 }}>
+				<div style={{ padding: "26px 24px", fontWeight: "900", fontSize: "18px", letterSpacing: "0.02em", color: "#fff", background: "linear-gradient(rgba(99,102,241,0.05), transparent)" }}>
+					LookUP!
+				</div>
+
+				<div style={{ padding: "8px 12px" }}>
+					{NAV_ITEMS.map((item) => {
+						const isActive = navView === item.id;
+						return (
+							<div
+								key={item.id}
+								onClick={() => handleNavClick(item.id)}
+								style={{
+									padding: "10px 16px",
+									marginBottom: "4px",
+									cursor: "pointer",
+									userSelect: "none",
+									borderRadius: "var(--radius-inner)",
+									fontSize: "13px",
+									background: isActive ? "var(--color-active)" : "transparent",
+									color: isActive ? "#fff" : "var(--color-text-muted)",
+									fontWeight: isActive ? "700" : "500",
+									borderLeft: isActive ? "3px solid var(--color-accent)" : "3px solid transparent",
+									display: "flex" /* added for layout alignment */,
+									alignItems: "center" /* added for layout alignment */,
+									gap: "10px" /* added for layout alignment */,
+									transition: "var(--transition)",
+								}}
+								onMouseEnter={(e) => {
+									if (!isActive) e.currentTarget.style.background = "rgba(99,102,241,0.04)";
+								}}
+								onMouseLeave={(e) => {
+									if (!isActive) e.currentTarget.style.background = "transparent";
+								}}
+							>
+								<i className={item.icon} style={{ width: "16px", color: isActive ? "var(--color-cyan)" : "var(--color-text-muted)" }}></i>
+								{item.label}
+							</div>
+						);
+					})}
+				</div>
+
+				<div style={{ marginTop: "auto", padding: "20px 24px", fontSize: "11px", color: "rgba(129, 140, 248, 0.4)", borderTop: "1px solid var(--color-border)", fontFamily: "monospace" }}>
+					<span style={{ background: "rgba(99,102,241,0.12)", padding: "2px 5px", borderRadius: "4px", color: "var(--color-accent)" }}>Ctrl+F</span> Quick Search
+				</div>
 			</div>
 
-			{/* People sidebar */}
+			{/* Inner Directory Sub-bar */}
 			{navView === "people" && (
-				<div style={{ width: "var(--sidebar-width)", borderRight: "1px solid var(--color-border)", display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
-					<div style={{ padding: 8, borderBottom: "1px solid var(--color-border)", display: "flex", gap: 4, alignItems: "center" }}>
-						<strong>People</strong>
+				<div
+					style={{
+						width: "var(--sidebar-width)",
+						borderRight: "1px solid var(--color-border)",
+						display: "flex",
+						flexDirection: "column",
+						overflow: "hidden",
+						flexShrink: 0,
+						background: "rgba(7,8,13,0.4)",
+					}}
+				>
+					<div style={{ padding: "20px 16px", borderBottom: "1px solid var(--color-border)", display: "flex", alignItems: "center" }}>
+						<span style={{ fontSize: "11px", fontWeight: "800", color: "var(--color-accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>People</span>
 						<button
 							onClick={() => {
 								setSelectedId(null);
 								setCreating(true);
 								setNavView("people");
 							}}
-							style={{ marginLeft: "auto", background: "var(--color-primary)", color: "#fff", border: "none", padding: "2px 7px", borderRadius: "var(--radius-sm)", cursor: "pointer" }}
+							style={{
+								marginLeft: "auto",
+								background: "var(--color-primary)",
+								color: "#fff",
+								border: "none",
+								padding: "5px 12px",
+								fontSize: "11px",
+								fontWeight: "700",
+								borderRadius: "var(--radius-pill)",
+								cursor: "pointer",
+								display: "flex",
+								alignItems: "center",
+								gap: "6px",
+								transition: "var(--transition)",
+							}}
+							onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-accent)")}
+							onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-primary)")}
 						>
-							+ New
+							<i className="fa-solid fa-plus" style={{ fontSize: "10px" }}></i> Card
 						</button>
 					</div>
-					<div style={{ flex: 1, overflowY: "auto" }}>
-						{people.map((p) => {
-							const isSelected = p.PersonID === selectedId && !creating;
-							return (
-								<div
-									key={p.PersonID}
-									onClick={() => {
-										setSelectedId(p.PersonID);
-										setCreating(false);
-									}}
-									style={{
-										padding: "6px 10px",
-										cursor: "pointer",
-										background: isSelected ? "var(--color-active)" : "transparent",
-										color: isSelected ? "var(--color-text-on-primary)" : "var(--color-text)",
-										borderBottom: "1px solid var(--color-border)",
-										display: "flex",
-										alignItems: "center",
-										gap: 8,
-									}}
-								>
-									{/* Mini profile picture or initial */}
+
+					<div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+						{/* ini loop people map */}
+						<div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+							{people.map((p) => {
+								const isSelected = p.PersonID === selectedId && !creating;
+
+								// Setup the color strings dynamically per record mapping
+								const listBadgeColor = isSelected ? "#fff" : p.CategoryColor || "rgba(255, 255, 255, 0.5)";
+								const listBadgeBg = isSelected ? "rgba(255, 255, 255, 0.15)" : p.CategoryColor ? `${p.CategoryColor}12` : "rgba(255,255,255,0.03)";
+								const listBadgeBorder = isSelected ? "rgba(255, 255, 255, 0.25)" : p.CategoryColor ? `${p.CategoryColor}35` : "var(--color-border)";
+
+								return (
 									<div
+										key={p.PersonID}
+										onClick={() => {
+											setSelectedId(p.PersonID);
+											setCreating(false);
+										}}
 										style={{
-											width: 32,
-											height: 32,
-											borderRadius: "50%",
-											flexShrink: 0,
-											overflow: "hidden",
-											border: "1px solid var(--color-border)",
-											background: "var(--color-surface-3)",
+											padding: "10px 12px",
+											borderRadius: "var(--radius-inner)",
+											cursor: "pointer",
+											background: isSelected ? "var(--color-card-hover)" : "transparent",
+											color: isSelected ? "#fff" : "var(--color-text)",
+											marginBottom: "4px",
 											display: "flex",
 											alignItems: "center",
-											justifyContent: "center",
+											gap: 12,
+											border: isSelected ? "1px solid rgba(99, 102, 241, 0.25)" : "1px solid transparent",
+											transition: "var(--transition)",
+										}}
+										onMouseEnter={(e) => {
+											if (!isSelected) e.currentTarget.style.background = "rgba(99,102,241,0.02)";
+										}}
+										onMouseLeave={(e) => {
+											if (!isSelected) e.currentTarget.style.background = "transparent";
 										}}
 									>
-										{p.PrimaryImage ? (
-											<img src={p.PrimaryImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-										) : (
-											<span style={{ fontSize: 13, color: "var(--color-text-faint)" }}>{p.FullName?.[0]?.toUpperCase() || "?"}</span>
-										)}
-									</div>
-									{/* Text info */}
-									<div style={{ minWidth: 0 }}>
-										<div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.FullName}</div>
-										{p.Nickname && (
-											<div style={{ fontSize: "var(--font-size-xs)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.Nickname}</div>
-										)}
-										{p.CategoryName && (
+										{/* Profile Picture Frame Container Block */}
+										<div
+											style={{
+												width: 36,
+												height: 36,
+												borderRadius: "50%",
+												background: "rgba(99,102,241,0.1)",
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "center",
+												overflow: "hidden",
+												border: isSelected ? "1px solid rgba(255,255,255,0.4)" : `1px solid ${p.CategoryColor ? `${p.CategoryColor}60` : "rgba(99,102,241,0.2)"}`,
+												flexShrink: 0,
+											}}
+										>
+											{p.PrimaryImage ? (
+												<img src={p.PrimaryImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+											) : (
+												<span
+													style={{
+														fontSize: "13px",
+														fontWeight: "600",
+														color: isSelected ? "#fff" : p.CategoryColor || "var(--color-accent)",
+														fontFamily: "var(--font-mono)",
+													}}
+												>
+													{p.FullName?.[0]?.toUpperCase()}
+												</span>
+											)}
+										</div>
+
+										{/* Text Content Column: Hard-locked to 36px to force a true vertical midpoint calculation */}
+										<div
+											style={{
+												minWidth: 0,
+												flex: 1,
+												height: 36,
+												display: "flex",
+												flexDirection: "column",
+												justifyContent: "center",
+												gap: "1px",
+											}}
+										>
+											{/* 1. Category Label Sub-Row */}
+											{p.CategoryName && (
+												<div style={{ display: "flex", lineHeight: 1 }}>
+													<span
+														style={{
+															fontSize: "10px",
+															fontWeight: "700",
+															textTransform: "lowercase",
+															fontFamily: "var(--font-mono)",
+															padding: "1px 5px",
+															borderRadius: "3px",
+															background: listBadgeBg,
+															color: listBadgeColor,
+															border: `1px solid ${listBadgeBorder}`,
+															lineHeight: "10px",
+															display: "inline-block",
+														}}
+													>
+														{p.CategoryName}
+													</span>
+												</div>
+											)}
+
+											{/* 2. Full Name + Nickname String */}
 											<div
 												style={{
-													fontSize: "var(--font-size-xs)",
-													color: isSelected ? "var(--color-text-on-primary)" : "var(--color-text-faint)",
-													opacity: isSelected ? 0.8 : 1,
+													fontWeight: "600",
+													fontSize: "13px",
+													whiteSpace: "nowrap",
+													overflow: "hidden",
+													textOverflow: "ellipsis",
+													color: isSelected ? "#fff" : "var(--color-text)",
+													lineHeight: "14px",
+													display: "flex",
+													alignItems: "baseline",
 												}}
 											>
-												{p.CategoryName}
+												<span>{p.FullName}</span>
+												{p.Nickname && (
+													<span
+														style={{
+															fontWeight: "400",
+															fontSize: "12px",
+															color: isSelected ? "rgba(255,255,255,0.6)" : "rgba(255, 255, 255, 0.4)",
+															marginLeft: "5px",
+															fontFamily: "var(--font-mono)",
+														}}
+													>
+														({p.Nickname.toLowerCase()})
+													</span>
+												)}
 											</div>
-										)}
+										</div>
 									</div>
-								</div>
-							);
-						})}
-						{people.length === 0 && <div style={{ padding: 10, color: "var(--color-text-faint)" }}>No people yet.</div>}
+								);
+							})}
+						</div>
 					</div>
 				</div>
 			)}
 
-			{/* Main panel */}
-			<div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+			{/* Frame Viewport */}
+			<div style={{ flex: 1, overflowY: "auto", padding: "30px 36px" }}>
 				{navView === "home" && <HomePage onOpenPerson={openPerson} />}
 				{navView === "birthdays" && <BirthdaysPage onOpenPerson={openPerson} />}
 				{navView === "tags" && <TagsPage onOpenPerson={openPerson} initialTagName={initialTagName} onTagOpened={() => setInitialTagName(null)} />}
 				{navView === "people" && (
-					<>
+					<div style={{ maxWidth: "950px" }}>
 						{creating && <PersonForm onSaved={handleSaved} onCancel={() => setCreating(false)} />}
 						{!creating && selectedId && <PersonDetail personId={selectedId} onDeleted={handleDeleted} onOpenTag={openTag} />}
-						{!creating && !selectedId && <div style={{ color: "var(--color-text-faint)", marginTop: 40, textAlign: "center" }}>Select a person, or click + New.</div>}
-					</>
+						{!creating && !selectedId && (
+							<div style={{ color: "var(--color-text-muted)", marginTop: 160, textAlign: "center", fontSize: "14px" }}>
+								Select an active deck link to view specialized personal profiles.
+							</div>
+						)}
+					</div>
 				)}
 			</div>
 		</div>
