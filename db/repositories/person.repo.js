@@ -17,7 +17,13 @@ function getAllPersons() {
 		.prepare(
 			`
     SELECT p.PersonID, p.FullName, p.Nickname, p.Birthdate, p.LastUpdated,
-           c.CategoryName, c.HexCode
+           c.CategoryName, c.HexCode,
+           (
+             SELECT m.Data FROM Media m
+             JOIN PersonMedia pm ON m.MediaID = pm.MediaID
+             WHERE pm.PersonID = p.PersonID AND pm.Role = 'primary'
+             LIMIT 1
+           ) AS PrimaryImage
     FROM Person p
     LEFT JOIN Category c ON p.CategoryID = c.CategoryID
     ORDER BY p.FullName
@@ -146,7 +152,7 @@ function getFullPerson(id) {
 			.all(id),
 		specifics: db
 			.prepare(
-          `
+				`
         SELECT s.SpecificsID, s.SpecificNote, sp.PointName, ss.SubName
         FROM Specifics s
         JOIN SpecificsPts sp ON s.PointID = sp.PointID
@@ -158,7 +164,7 @@ function getFullPerson(id) {
 			.all(id),
 		media: db
 			.prepare(
-              `
+				`
         SELECT m.MediaID, m.FilePath, m.Date, m.Data, pm.Role
         FROM Media m
         JOIN PersonMedia pm ON m.MediaID = pm.MediaID
@@ -386,9 +392,139 @@ function deletePopulateTest() {
 
 // Also add `deletePopulateTest` to module.exports.
 
+// ── IMPORT FROM JSON ─────────────────────────────────────────────
+// Accepts the clean JSON format exported by the View JSON panel.
+// Creates a new Person plus all child records. Never overwrites.
+function importPerson(data) {
+	const db = getDb();
+
+	return db.transaction(() => {
+		const p = data.person || {};
+
+		// Resolve CategoryID by name
+		let categoryId = null;
+		if (p.CategoryName) {
+			const cat = db.prepare(`SELECT CategoryID FROM Category WHERE lower(CategoryName)=lower(?)`).get(p.CategoryName);
+			if (cat) categoryId = cat.CategoryID;
+		}
+
+		// Resolve TimezoneID by name
+		let timezoneId = null;
+		if (p.TimezoneName) {
+			const tz = db.prepare(`SELECT TimezoneID FROM Timezones WHERE Name=?`).get(p.TimezoneName);
+			if (tz) timezoneId = tz.TimezoneID;
+		}
+
+		// Insert person
+		const personId = db
+			.prepare(
+				`
+			INSERT INTO Person (FullName, Nickname, Birthdate, Address, ImpressionNote, TimezoneID, CategoryID, LastUpdated)
+			VALUES (@FullName, @Nickname, @Birthdate, @Address, @ImpressionNote, @TimezoneID, @CategoryID, datetime('now'))
+		`,
+			)
+			.run({
+				FullName: p.FullName || "Imported Person",
+				Nickname: p.Nickname || null,
+				Birthdate: p.Birthdate || null,
+				Address: p.Address || null,
+				ImpressionNote: p.ImpressionNote || null,
+				TimezoneID: timezoneId,
+				CategoryID: categoryId,
+			}).lastInsertRowid;
+
+		// Pronouns
+		for (const pr of data.pronouns || []) {
+			if (!pr.Pronouns) continue;
+			let pid = db.prepare(`SELECT PronounsID FROM Pronouns WHERE lower(Pronouns)=lower(?)`).get(pr.Pronouns)?.PronounsID;
+			if (!pid) pid = db.prepare(`INSERT INTO Pronouns (Pronouns) VALUES (?)`).run(pr.Pronouns).lastInsertRowid;
+			db.prepare(`INSERT OR IGNORE INTO PersonPronouns (PersonID, PronounsID) VALUES (?,?)`).run(personId, pid);
+		}
+
+		// Tags
+		for (const t of data.tags || []) {
+			if (!t.TagName) continue;
+			let tid = db.prepare(`SELECT TagID FROM Tags WHERE lower(TagName)=lower(?)`).get(t.TagName)?.TagID;
+			if (!tid) tid = db.prepare(`INSERT INTO Tags (TagName) VALUES (?)`).run(t.TagName).lastInsertRowid;
+			db.prepare(`INSERT OR IGNORE INTO PersonTag (PersonID, TagID) VALUES (?,?)`).run(personId, tid);
+		}
+
+		// Social accounts
+		for (const s of data.socialAccounts || []) {
+			if (!s.PlatformName || !s.AccountTag) continue;
+			let platId = db.prepare(`SELECT PlatformID FROM SocialPlatform WHERE lower(PlatformName)=lower(?)`).get(s.PlatformName)?.PlatformID;
+			if (!platId) platId = db.prepare(`INSERT INTO SocialPlatform (PlatformName, Logo, URLTemplate) VALUES (?,'',' ')`).run(s.PlatformName).lastInsertRowid;
+			db.prepare(`INSERT INTO SocialAccount (PersonID, PlatformID, AccountTag) VALUES (?,?,?)`).run(personId, platId, s.AccountTag);
+		}
+
+		// Education
+		for (const e of data.eduHistory || []) {
+			let instId = null;
+			if (e.InstitutionName) {
+				instId = db.prepare(`SELECT InstID FROM AcademicInst WHERE lower(InstitutionName)=lower(?)`).get(e.InstitutionName)?.InstID;
+				if (!instId) instId = db.prepare(`INSERT INTO AcademicInst (InstitutionName, Link) VALUES (?,'')`).run(e.InstitutionName).lastInsertRowid;
+			}
+			let levelId = null;
+			if (e.EduLevelName) {
+				levelId = db.prepare(`SELECT EduLevelID FROM EduLevel WHERE lower(LevelName)=lower(?)`).get(e.EduLevelName)?.EduLevelID;
+			}
+			db.prepare(
+				`
+				INSERT INTO EduHistory (PersonID, InstID, EduLevelID, Faculty, FieldOfStudy, StartYear, EndYear, IsPresent)
+				VALUES (?,?,?,?,?,?,?,?)
+			`,
+			).run(personId, instId, levelId, e.Faculty || null, e.FieldOfStudy || null, e.StartYear || null, e.EndYear || null, e.IsPresent ? 1 : 0);
+		}
+
+		// Org history
+		for (const o of data.orgHistory || []) {
+			let orgId = null;
+			if (o.OrgName) {
+				orgId = db.prepare(`SELECT OrgID FROM Organization WHERE lower(OrgName)=lower(?)`).get(o.OrgName)?.OrgID;
+				if (!orgId) orgId = db.prepare(`INSERT INTO Organization (OrgName) VALUES (?)`).run(o.OrgName).lastInsertRowid;
+			}
+			db.prepare(
+				`
+				INSERT INTO OrgHistory (PersonID, OrgID, Role, StartYear, EndYear, IsPresent)
+				VALUES (?,?,?,?,?,?)
+			`,
+			).run(personId, orgId, o.Role || null, o.StartYear || null, o.EndYear || null, o.IsPresent ? 1 : 0);
+		}
+
+		// Notes
+		for (const n of data.notes || []) {
+			if (n.Note) db.prepare(`INSERT INTO Notes (PersonID, Note) VALUES (?,?)`).run(personId, n.Note);
+		}
+
+		// Quotes
+		for (const q of data.quotes || []) {
+			if (q.Quote) db.prepare(`INSERT INTO Quote (PersonID, Quote, Date) VALUES (?,?,?)`).run(personId, q.Quote, q.Date || null);
+		}
+
+		// WordMouth (He Said / She Said)
+		for (const w of data.wordMouths || []) {
+			if (w.Quote) db.prepare(`INSERT INTO WordMouth (PersonID, SayerID, Quote, Date) VALUES (?,?,?,?)`).run(personId, null, w.Quote, w.Date || null);
+		}
+
+		// Specifics
+		for (const s of data.specifics || []) {
+			if (!s.SubName || !s.PointName || !s.SpecificNote) continue;
+			let subId = db.prepare(`SELECT SubSpecificsID FROM SubSpecifics WHERE lower(SubName)=lower(?)`).get(s.SubName)?.SubSpecificsID;
+			if (!subId) subId = db.prepare(`INSERT INTO SubSpecifics (SubName) VALUES (?)`).run(s.SubName).lastInsertRowid;
+			let ptId = db.prepare(`SELECT PointID FROM SpecificsPts WHERE SubSpecificsID=? AND lower(PointName)=lower(?)`).get(subId, s.PointName)?.PointID;
+			if (!ptId) ptId = db.prepare(`INSERT INTO SpecificsPts (SubSpecificsID, PointName) VALUES (?,?)`).run(subId, s.PointName).lastInsertRowid;
+			db.prepare(`INSERT INTO Specifics (PersonID, PointID, SpecificNote) VALUES (?,?,?)`).run(personId, ptId, s.SpecificNote);
+		}
+
+		touchLastUpdated(personId);
+		return personId;
+	})();
+}
+
 module.exports = {
 	touchLastUpdated,
 	getAllPersons,
+	importPerson,
 	getFullPerson,
 	createPerson,
 	updatePerson,

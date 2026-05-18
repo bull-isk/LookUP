@@ -260,6 +260,104 @@ function DeleteModal({ person, personId, onClose, onDeleted }) {
 	);
 }
 
+// ── Strip base64 image data from JSON export ─────────────────────
+// Media rows include the full Data URI which can be megabytes.
+// Replace it with a summary so the JSON is human-readable.
+function buildCleanJson(data) {
+	if (!data) return data;
+	return {
+		...data,
+		media: (data.media || []).map((m) => ({
+			MediaID: m.MediaID,
+			FilePath: m.FilePath,
+			Date: m.Date,
+			Role: m.Role,
+			// Data omitted (base64 image)
+		})),
+	};
+}
+
+// ── Import JSON modal ─────────────────────────────────────────────
+function ImportJsonModal({ onClose, onImported }) {
+	const [text, setText] = useState("");
+	const [error, setError] = useState("");
+	const [saving, setSaving] = useState(false);
+
+	const handleImport = async () => {
+		setError("");
+		let parsed;
+		try {
+			parsed = JSON.parse(text.trim());
+		} catch (e) {
+			setError("Invalid JSON: " + e.message);
+			return;
+		}
+		setSaving(true);
+		try {
+			await api.personImport(parsed);
+			onImported();
+			onClose();
+		} catch (e) {
+			setError(e.message || "Import failed");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<Modal onClose={onClose} width={600}>
+			<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", fontWeight: "bold", color: "var(--color-text)" }}>Import from JSON</div>
+			<div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
+				<p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginTop: 0 }}>
+					Paste a person JSON exported from LookUP!. Creates a new person — does not overwrite existing data.
+				</p>
+				{error && (
+					<div
+						style={{
+							color: "var(--color-danger)",
+							fontSize: "var(--font-size-sm)",
+							marginBottom: 10,
+							padding: "6px 10px",
+							border: "1px solid var(--color-danger)",
+							borderRadius: "var(--radius-sm)",
+							background: "var(--color-surface-2)",
+						}}
+					>
+						{error}
+					</div>
+				)}
+				<textarea
+					autoFocus
+					value={text}
+					onChange={(e) => setText(e.target.value)}
+					placeholder="Paste JSON here…"
+					style={{
+						width: "100%",
+						height: 300,
+						resize: "vertical",
+						padding: "8px 10px",
+						border: "1px solid var(--color-border)",
+						borderRadius: "var(--radius-sm)",
+						background: "var(--color-bg)",
+						color: "var(--color-text)",
+						fontSize: 11,
+						fontFamily: "var(--font-mono)",
+						lineHeight: 1.5,
+					}}
+				/>
+			</div>
+			<div style={{ padding: "10px 18px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+				<button style={btnG} onClick={onClose}>
+					Cancel
+				</button>
+				<button style={btnP} onClick={handleImport} disabled={saving || !text.trim()}>
+					{saving ? "Importing…" : "Import"}
+				</button>
+			</div>
+		</Modal>
+	);
+}
+
 // ── Main header export ────────────────────────────────────────────
 export default function PersonHeader({ person, pronouns, media, lookups, personId, onDeleted, onSaved, refreshLookups, settingsRef, data }) {
 	const [panel, setPanel] = useState(null); // 'editHeader' | 'viewJson' | 'deleteConfirm'
@@ -277,6 +375,13 @@ export default function PersonHeader({ person, pronouns, media, lookups, personI
 			label: "{ } View JSON",
 			action: () => {
 				setPanel("viewJson");
+				setSettingsOpen(false);
+			},
+		},
+		{
+			label: "⬆ Import JSON",
+			action: () => {
+				setPanel("importJson");
 				setSettingsOpen(false);
 			},
 		},
@@ -306,12 +411,17 @@ export default function PersonHeader({ person, pronouns, media, lookups, personI
 				/>
 			)}
 			{panel === "viewJson" && (
-				<Modal onClose={() => setPanel(null)} width={640}>
+				<Modal onClose={() => setPanel(null)} width={660}>
 					<div style={{ padding: "14px 18px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<span style={{ fontWeight: "bold", color: "var(--color-text)" }}>Raw JSON — {person.FullName}</span>
-						<button style={btnG} onClick={() => setPanel(null)}>
-							✕
-						</button>
+						<span style={{ fontWeight: "bold", color: "var(--color-text)" }}>JSON — {person.FullName}</span>
+						<div style={{ display: "flex", gap: 8 }}>
+							<button onClick={() => navigator.clipboard.writeText(JSON.stringify(buildCleanJson(data), null, 2))} style={btnG}>
+								Copy
+							</button>
+							<button style={btnG} onClick={() => setPanel(null)}>
+								✕
+							</button>
+						</div>
 					</div>
 					<div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
 						<pre
@@ -327,11 +437,13 @@ export default function PersonHeader({ person, pronouns, media, lookups, personI
 								margin: 0,
 							}}
 						>
-							{JSON.stringify(data, null, 2)}
+							{JSON.stringify(buildCleanJson(data), null, 2)}
 						</pre>
 					</div>
 				</Modal>
 			)}
+
+			{panel === "importJson" && <ImportJsonModal onClose={() => setPanel(null)} onImported={onSaved} />}
 			{panel === "deleteConfirm" && <DeleteModal person={person} personId={personId} onClose={() => setPanel(null)} onDeleted={onDeleted} />}
 
 			{/* ── Header row ── */}

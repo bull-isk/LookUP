@@ -18,4 +18,5 @@ module.exports = function registerPersonHandlers() {
   ipcMain.handle('person:search',          (_, q)       => repo.searchPersons(q));
 
   ipcMain.handle('person:deletePopulateTest', () => repo.deletePopulateTest());
+  ipcMain.handle('person:import',             (_, d) => repo.importPerson(d));
 };
